@@ -50,46 +50,25 @@ body {
   z-index: 2;
 }
 
-.hero-text {
+.title {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, calc(-50% - 8vh));
   width: 100%;
   padding: 0 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   text-align: center;
+  font-size: clamp(2.3rem, 7vw, 4.5rem);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: #ffffff;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
   opacity: 0;
   animation: titleFadeUp 0.8s ease-out forwards;
   animation-delay: 0.15s;
-}
-
-.title {
-  margin: 0;
-  font-family: "Libre Bodoni", Didot, "Bodoni MT", "Times New Roman", serif;
-  font-size: clamp(2.6rem, 7vw, 5.25rem);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  line-height: 0.95;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.9);
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
-}
-
-.subtitle {
-  margin-top: 0.9rem;
-  font-family: Arial, "Avenir Next", Avenir, Helvetica, sans-serif;
-  font-size: clamp(0.78rem, 1.6vw, 1rem);
-  font-weight: 500;
-  letter-spacing: 0.26em;
-  line-height: 1.2;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.68);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
 }
 
 .social-icons {
@@ -165,7 +144,7 @@ body {
     background-position: center 28%;
   }
 
-  .hero-text {
+  .title {
     transform: translate(-50%, calc(-50% - 6vh));
   }
 
@@ -196,7 +175,7 @@ body {
     background-position: center 24%;
   }
 
-  .hero-text {
+  .title {
     transform: translate(-50%, calc(-50% - 4vh));
   }
 
@@ -213,12 +192,9 @@ body {
 }
 
 @media (max-width: 768px) {
-  .hero-text {
-    padding: 0 24px;
-  }
-
   .title {
-    letter-spacing: 0.06em;
+    padding: 0 24px;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -227,20 +203,8 @@ body {
     background-position: center 38%;
   }
 
-  .hero-text {
-    transform: translate(-50%, calc(-50% - 7vh));
-  }
-
   .title {
-    font-size: clamp(2.15rem, 10vw, 3rem);
-    letter-spacing: 0.05em;
-    line-height: 1;
-  }
-
-  .subtitle {
-    margin-top: 0.65rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
+    font-size: clamp(2.1rem, 10vw, 3rem);
   }
 
   .social-icons {
@@ -256,7 +220,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-text {
+  .title {
     opacity: 1;
     animation: none;
     transform: translate(-50%, calc(-50% - 8vh));
