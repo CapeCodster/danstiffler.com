@@ -54,7 +54,7 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, calc(-50% - 8vh));
+  transform: translate(-50%, calc(-50% - 4vh));
   width: 100%;
   padding: 0 20px;
   display: flex;
@@ -62,7 +62,7 @@ body {
   align-items: center;
   text-align: center;
   opacity: 0;
-  animation: titleFadeUp 0.8s ease-out forwards;
+  animation: heroTextFadeUp 0.8s ease-out forwards;
   animation-delay: 0.15s;
 }
 
@@ -71,7 +71,7 @@ body {
   font-family: "Libre Bodoni", Didot, "Bodoni MT", "Times New Roman", serif;
   font-size: clamp(2.6rem, 7vw, 5.25rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   line-height: 0.95;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.9);
@@ -89,7 +89,9 @@ body {
   line-height: 1.2;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.68);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.14);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
 }
 
 .social-icons {
@@ -148,14 +150,14 @@ body {
   line-height: 1;
 }
 
-@keyframes titleFadeUp {
+@keyframes heroTextFadeUp {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-50% - 8vh + 14px));
+    transform: translate(-50%, calc(-50% - 4vh + 14px));
   }
   to {
     opacity: 1;
-    transform: translate(-50%, calc(-50% - 8vh));
+    transform: translate(-50%, calc(-50% - 4vh));
   }
 }
 
@@ -166,17 +168,17 @@ body {
   }
 
   .hero-text {
-    transform: translate(-50%, calc(-50% - 6vh));
+    transform: translate(-50%, calc(-50% - 3vh));
   }
 
-  @keyframes titleFadeUp {
+  @keyframes heroTextFadeUp {
     from {
       opacity: 0;
-      transform: translate(-50%, calc(-50% - 6vh + 14px));
+      transform: translate(-50%, calc(-50% - 3vh + 14px));
     }
     to {
       opacity: 1;
-      transform: translate(-50%, calc(-50% - 6vh));
+      transform: translate(-50%, calc(-50% - 3vh));
     }
   }
 
@@ -197,17 +199,17 @@ body {
   }
 
   .hero-text {
-    transform: translate(-50%, calc(-50% - 4vh));
+    transform: translate(-50%, calc(-50% - 2vh));
   }
 
-  @keyframes titleFadeUp {
+  @keyframes heroTextFadeUp {
     from {
       opacity: 0;
-      transform: translate(-50%, calc(-50% - 4vh + 14px));
+      transform: translate(-50%, calc(-50% - 2vh + 14px));
     }
     to {
       opacity: 1;
-      transform: translate(-50%, calc(-50% - 4vh));
+      transform: translate(-50%, calc(-50% - 2vh));
     }
   }
 }
@@ -218,7 +220,7 @@ body {
   }
 
   .title {
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
   }
 }
 
@@ -228,7 +230,18 @@ body {
   }
 
   .hero-text {
-    transform: translate(-50%, calc(-50% - 7vh));
+    transform: translate(-50%, calc(-50% - 5vh));
+  }
+
+  @keyframes heroTextFadeUp {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% - 5vh + 14px));
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, calc(-50% - 5vh));
+    }
   }
 
   .title {
@@ -259,7 +272,7 @@ body {
   .hero-text {
     opacity: 1;
     animation: none;
-    transform: translate(-50%, calc(-50% - 8vh));
+    transform: translate(-50%, calc(-50% - 4vh));
   }
 
   .social-icons a {
