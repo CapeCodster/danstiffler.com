@@ -54,7 +54,7 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, calc(-50% - 6vh));
+  transform: translate(-50%, calc(-50% - 6.5vh));
   width: 100%;
   padding: 0 20px;
   display: flex;
