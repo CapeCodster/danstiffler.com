@@ -199,6 +199,10 @@ body {
 }
 
 @media (max-width: 480px) {
+  .hero {
+    background-position: center 38%;
+  }
+
   .title {
     font-size: clamp(2.1rem, 10vw, 3rem);
   }
