@@ -1,0 +1,3 @@
+# Copy to .dev.vars for localhost only. Never reuse these values remotely.
+AUTH_PEPPER=replace-with-a-long-random-local-value
+TRIP_BOOTSTRAP_SECRET=replace-with-a-separate-long-random-local-value

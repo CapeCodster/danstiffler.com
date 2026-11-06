@@ -1,0 +1,27 @@
+{
+  "name": "My Travels",
+  "short_name": "My Travels",
+  "description": "Dan and Ken's private travel organizer",
+  "id": "/trip/",
+  "start_url": "/trip/",
+  "scope": "/trip/",
+  "display_override": ["standalone"],
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f2e9",
+  "theme_color": "#0a2a4e",
+  "icons": [
+    {
+      "src": "/trip/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/trip/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

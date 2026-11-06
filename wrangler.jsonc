@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "danstiffler-com",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "danstiffler-travel-production",
+      "database_id": "b6991d19-5bc6-4577-86a8-a239b5615211",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "TRIP_DOCUMENTS",
+      "bucket_name": "danstiffler-travel-documents-production"
+    }
+  ],
+  "vars": {
+    "AUTH_MODE": "production",
+    "SESSION_TTL_SECONDS": "604800"
+  },
+  "env": {
+    "preview": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "danstiffler-travel-preview",
+          "database_id": "992fc383-7f44-475c-9bb7-a7c97497aa4f",
+          "migrations_dir": "./migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "TRIP_DOCUMENTS",
+          "bucket_name": "danstiffler-travel-documents-preview"
+        }
+      ],
+      "vars": {
+        "AUTH_MODE": "preview",
+        "SESSION_TTL_SECONDS": "604800"
+      }
+    }
+  }
+}

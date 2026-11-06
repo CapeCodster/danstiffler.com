@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">My Travels globe</title>
+  <rect width="512" height="512" rx="96" fill="#fbf7f1"/>
+  <circle cx="256" cy="256" r="184" fill="#081c3d"/>
+  <g fill="none" stroke="#fbf7f1" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="256" cy="256" r="124"/>
+    <path d="M132 256h248M256 132c42 42 56 83 56 124s-14 82-56 124c-42-42-56-83-56-124s14-82 56-124Z"/>
+  </g>
+</svg>

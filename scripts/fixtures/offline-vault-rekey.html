@@ -1,0 +1,79 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Offline vault rekey acceptance</title>
+<pre id="result">Running…</pre>
+<script type="module">
+  import {
+    getOfflineSummary,
+    rekeyOfflineVault,
+    removeOfflineVault,
+    saveOfflineVault,
+    unlockOfflineVault,
+    updateOfflineVaultState,
+  } from "/trip/js/offline-vault.js";
+
+  const result = document.querySelector("#result");
+  const traveller = "RekeyAcceptance";
+  const currentCode = "135790";
+  const newCode = "246802";
+  const pending = [{
+    mutationId: "rekey-acceptance-pending",
+    activityId: "acceptance-activity",
+    kind: "update",
+    baseRevision: 1,
+    changedAt: "2026-11-05T12:00:00.000Z",
+    changes: { title: "Preserved offline edit" },
+  }];
+  try {
+    await removeOfflineVault(traveller);
+    await saveOfflineVault({
+      traveller,
+      code: currentCode,
+      itinerary: { trip: { id: "acceptance" }, days: [] },
+      overrides: { "acceptance-activity": { title: "Preserved offline edit" } },
+      revisions: { "acceptance-activity": 1 },
+      assets: [{
+        url: "/acceptance-ticket.pdf",
+        name: "Acceptance ticket",
+        kind: "ticket",
+        blob: new Blob(["private ticket bytes"], { type: "application/pdf" }),
+      }],
+    });
+    const before = await unlockOfflineVault(traveller, currentCode);
+    await updateOfflineVaultState({
+      traveller,
+      key: before.key,
+      pendingChanges: pending,
+      conflicts: [],
+      pendingChangedAt: "2026-11-05T12:00:00.000Z",
+      pendingExportedAt: null,
+    });
+    const rekeyed = await rekeyOfflineVault({ traveller, currentCode, newCode });
+    let oldCodeRejected = false;
+    try {
+      await unlockOfflineVault(traveller, currentCode);
+    } catch (error) {
+      oldCodeRejected = error.code === "BAD_CODE";
+    }
+    const after = await unlockOfflineVault(traveller, newCode);
+    const summary = await getOfflineSummary(traveller);
+    const passed = oldCodeRejected
+      && rekeyed.summary.pendingCount === 1
+      && summary.pendingCount === 1
+      && after.pendingChanges[0]?.changes?.title === "Preserved offline edit"
+      && after.assets[0]?.blob?.size > 0;
+    if (!passed) throw new Error("Rekey assertions failed");
+    result.textContent = JSON.stringify({
+      ok: true,
+      oldCodeRejected,
+      pendingChangesPreserved: summary.pendingCount,
+      ticketDocumentsPreserved: summary.ticketCount,
+      encryptedAssetReadable: true,
+    }, null, 2);
+  } catch (error) {
+    result.textContent = JSON.stringify({ ok: false, error: error.message, code: error.code }, null, 2);
+    document.title = "FAIL — Offline vault rekey acceptance";
+  } finally {
+    await removeOfflineVault(traveller);
+  }
+</script>

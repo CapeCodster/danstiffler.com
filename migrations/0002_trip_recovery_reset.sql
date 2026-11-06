@@ -1,0 +1,5 @@
+ALTER TABLE travel_users
+  ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE travel_sessions
+  ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1;
