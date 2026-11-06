@@ -46,7 +46,7 @@ for (const forbidden of ["data-traveller=", "Choose a traveller", "Create a six-
 
 const serviceWorker = await fetchText("/trip/sw.js", { cache: "no-store" });
 assert(serviceWorker.response.status === 200, `Service worker returned ${serviceWorker.response.status}`);
-assert(serviceWorker.text.includes("my-travels-shell-v15"), "Production service worker cache version is incorrect");
+assert(serviceWorker.text.includes("my-travels-shell-v16"), "Production service worker cache version is incorrect");
 const manifest = await fetchText("/trip/manifest.webmanifest", { cache: "no-store" });
 assert(manifest.response.status === 200, `Web manifest returned ${manifest.response.status}`);
 assert(manifest.text.includes("/trip/icons/icon-192.png"), "Offline manifest icon is missing");
@@ -85,6 +85,10 @@ assert(itineraryResponse.status === 200, `Authenticated itinerary returned ${iti
 assert((itineraryResponse.headers.get("cache-control") || "").includes("no-store"), "Authenticated itinerary is missing no-store");
 const itinerary = await itineraryResponse.json();
 assert(Array.isArray(itinerary.itinerary?.days) && itinerary.itinerary.days.length >= 8, `${environmentLabel} itinerary is incomplete`);
+const loganDrive = itinerary.overrides?.["custom-drive-to-logan-airport"];
+assert(loganDrive?.custom === true, "Drive to Logan Airport activity is missing");
+assert(loganDrive.dayDate === "2026-11-13" && loganDrive.start === "07:00" && loganDrive.end === "08:10", "Drive to Logan Airport schedule is incorrect");
+assert(loganDrive.address === "Boston Logan International Airport Rental Car Center", "Drive to Logan Airport destination is incorrect");
 const serialized = JSON.stringify(itinerary);
 assert(!serialized.includes("/trip/private/") && !serialized.includes("/outputs/"), `${environmentLabel} itinerary exposes local private paths`);
 
@@ -218,6 +222,7 @@ console.log(JSON.stringify({
   travelerRecoveryIsolation: true,
   replacementRecoverySetsInvalidated: true,
   privateCredentialFileUpdated: true,
+  loganDrive: true,
   environment,
   privateCredentialFile: `trip/private/${credentialFilename}`,
 }));

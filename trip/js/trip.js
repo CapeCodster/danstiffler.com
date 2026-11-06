@@ -23,6 +23,8 @@ const STORAGE = {
 };
 
 const SERVER_AUTH = location.protocol !== "file:";
+const REFERENCE_ACTIVITY_IDS = new Set(["travel-insurance-reference"]);
+const isReferenceActivity = (activity) => Boolean(activity?.reference) || REFERENCE_ACTIVITY_IDS.has(activity?.id);
 
 const fallbackData = {
   privateLocalData: false,
@@ -762,7 +764,7 @@ $$('.nav-item').forEach((button) => {
   });
 });
 
-function getDays() {
+function getAllDays() {
   return itinerary.days.map((day) => ({
     ...day,
     activities: [
@@ -790,8 +792,19 @@ function getDays() {
   }));
 }
 
+function getDays() {
+  return getAllDays().map((day) => ({
+    ...day,
+    activities: day.activities.filter((activity) => !isReferenceActivity(activity)),
+  }));
+}
+
+function getReferenceActivities() {
+  return getAllDays().flatMap((day) => day.activities).filter(isReferenceActivity);
+}
+
 function findActivity(id) {
-  return getDays().flatMap((day) => day.activities).find((activity) => activity.id === id);
+  return getAllDays().flatMap((day) => day.activities).find((activity) => activity.id === id);
 }
 
 function localIsoDate(date, timeZone) {
@@ -926,7 +939,11 @@ function transportFor(activity) {
 }
 
 function directionsFor(activity) {
-  return `https://maps.apple.com/?q=${encodeURIComponent(activity.address || activity.venue || activity.title)}`;
+  const parameters = new URLSearchParams({
+    destination: activity.address || activity.venue || activity.title,
+    mode: "driving",
+  });
+  return `https://maps.apple.com/directions?${parameters}`;
 }
 
 function render() {
@@ -1075,7 +1092,7 @@ function renderItinerary() {
 }
 
 function renderTickets() {
-  const documents = getDays().flatMap((day) => day.activities).filter((activity) => activity.ticket || activity.evidence);
+  const documents = getAllDays().flatMap((day) => day.activities).filter((activity) => activity.ticket || activity.evidence);
   mainContent.innerHTML = `
     <div class="view-content">
       <div class="page-intro"><p class="eyebrow">Trip documents</p><h1>Tickets & Confirmations</h1><p>Both travelers may view every document. A traveler label shows who uses a ticket, not who may open it.</p></div>
@@ -1097,6 +1114,7 @@ function renderTickets() {
 }
 
 function renderMore() {
+  const referenceActivities = getReferenceActivities();
   const offlineReady = readJson(localStorage.getItem(STORAGE.offline), {}).ready;
   const archivedTrips = readJson(localStorage.getItem(STORAGE.archived), {});
   const archivedAt = archivedTrips[state.currentProfile];
@@ -1146,6 +1164,21 @@ function renderMore() {
             ${itinerary.tasks.map((task) => `<article class="task-card"><span class="status-badge" data-status="awaiting">Open</span><h3>${escapeHtml(listingTitle(task.title))}</h3><p>${escapeHtml(task.detail)}</p></article>`).join("") || '<p>No open preparation items.</p>'}
           </div>
         </section>
+        ${referenceActivities.length ? `<section class="settings-section">
+          <h2>Travel Reference</h2>
+          <p>Important policies and reference documents that are not timed itinerary activities.</p>
+          <div class="reference-list">
+            ${referenceActivities.map((activity) => `<article class="reference-card">
+              <h3>${escapeHtml(listingTitle(activity.title))}</h3>
+              <p>${escapeHtml(activity.venue || activity.city)}</p>
+              <div class="button-row">
+                ${activity.ticket ? `<button class="primary-button" type="button" data-document-url="${escapeHtml(activity.ticket)}">${escapeHtml(activity.ticketLabel || "View document")}</button>` : ""}
+                ${activity.evidence ? `<button class="secondary-button" type="button" data-document-url="${escapeHtml(activity.evidence)}">${escapeHtml(activity.evidenceLabel || "View reference")}</button>` : ""}
+                <button class="secondary-button" type="button" data-activity-id="${escapeHtml(activity.id)}">Coverage details</button>
+              </div>
+            </article>`).join("")}
+          </div>
+        </section>` : ""}
         ${offlineSection}
         <section class="settings-section">
           <h2>Apple Calendar Fallback</h2>
@@ -1462,6 +1495,8 @@ function openActivity(id, editMode = false) {
   const transport = transportFor(activity);
   const prebooked = isPrebookedJourney(activity);
   const shipSchedule = activity.kind === "ship";
+  const referenceMaterial = isReferenceActivity(activity);
+  const hideTravelActions = shipSchedule || referenceMaterial;
   const detailMedia = mediaFor(activity.mediaKey || (activity.city.includes("Hong Kong") ? "hongKong" : "singapore"));
   const ticketLabel = activity.ticketLabel || (["peak-tram", "supertree"].includes(activity.id) ? "Show both tickets" : "Show ticket");
   const evidenceLabel = activity.evidenceLabel || "View confirmation";
@@ -1479,10 +1514,12 @@ function openActivity(id, editMode = false) {
           <h2>${escapeHtml(listingTitle(activity.title))}</h2>
           <p class="detail-date">${escapeHtml(formatDay(activity.dayDate))}</p>
           <span class="status-badge" data-status="${escapeHtml(activity.status)}">${escapeHtml(statusLabel(activity.status))}</span>
-          <div class="detail-time-block"><span aria-hidden="true">◷</span><div><strong>${escapeHtml(activityTimeRange(activity))}</strong><small>${escapeHtml(activity.venue || activity.city)}</small></div></div>
+          ${referenceMaterial
+            ? `<div class="detail-time-block"><span aria-hidden="true">▤</span><div><strong>Reference material</strong><small>${escapeHtml(activity.venue || activity.city)}</small></div></div>`
+            : `<div class="detail-time-block"><span aria-hidden="true">◷</span><div><strong>${escapeHtml(activityTimeRange(activity))}</strong><small>${escapeHtml(activity.venue || activity.city)}</small></div></div>`}
           ${prebooked ? `<div class="transfer-plan">${carIcon()}<div><strong>${activity.status === "awaiting" ? "Prebooked transfer · confirmation pending" : "Prebooked transfer details"}</strong><p>${escapeHtml(activity.note || activity.bookingDetails || `Pickup is scheduled at ${activity.meetingPoint || activity.venue || activity.city}. Review the confirmation before departure.`)}</p></div></div>` : ""}
           ${activity.ticket ? `<button class="ticket-button" type="button" data-document-url="${escapeHtml(activity.ticket)}"><span aria-hidden="true">▱</span>${escapeHtml(ticketLabel)}</button>` : ""}
-          ${shipSchedule ? "" : `<div class="detail-action-grid">
+          ${hideTravelActions ? "" : `<div class="detail-action-grid">
             <a class="outline-action" href="${directionsFor(activity)}" target="_blank" rel="noopener">↗ <span>Directions</span></a>
             <button class="outline-action" type="button" data-transport-activity="${escapeHtml(activity.id)}">${carIcon()}<span>${prebooked ? "Backup " : ""}${transport.name}</span></button>
           </div>`}
@@ -1495,12 +1532,12 @@ function openActivity(id, editMode = false) {
           <div class="travel-note">✎ ${escapeHtml(activity.whatToWear || (leave ? `Leave by ${leave}.` : "Check the activity details before departure."))}</div>
           ${activity.evidence ? `<button class="evidence-link" type="button" data-document-url="${escapeHtml(activity.evidence)}">${escapeHtml(evidenceLabel)}</button>` : ""}
           ${state.offlineMode ? '<p class="security-note">Offline edits are encrypted on this device and marked pending until authenticated sync.</p>' : ""}
-          <div class="detail-actions">
+          ${referenceMaterial ? "" : `<div class="detail-actions">
           <button class="secondary-button" type="button" data-set-status="done">Done</button>
           <button class="secondary-button" type="button" data-set-status="skipped">Skip</button>
           <button class="danger-button" type="button" data-set-status="cancelled">Cancel</button>
           ${activity.custom ? '<button class="danger-button" type="button" data-delete-activity>Delete added activity</button>' : (state.overrides[activity.id] ? '<button class="secondary-button" type="button" data-restore-activity>Restore original</button>' : "")}
-          </div>
+          </div>`}
         </div>
       </div>`;
 
@@ -1523,6 +1560,7 @@ function openActivity(id, editMode = false) {
     const saved = await saveOverride(id, {
       title: listingTitle(form.get("title").trim()),
       venue: form.get("venue").trim(),
+      address: form.get("address").trim(),
       start: form.get("start"),
       end: form.get("end"),
       whatToWear: form.get("whatToWear").trim(),
@@ -1544,6 +1582,7 @@ function renderActivityEdit(activity) {
       <form class="edit-form" id="activityEditForm">
         <label>Title<input name="title" required value="${escapeHtml(listingTitle(activity.title))}"></label>
         <label>Venue<input name="venue" value="${escapeHtml(activity.venue || "")}"></label>
+        <label>Destination / Address<input name="address" value="${escapeHtml(activity.address || "")}" autocomplete="street-address"></label>
         <div class="form-columns">
           <label>Start<input name="start" type="time" required value="${escapeHtml(activity.start)}"></label>
           <label>End<input name="end" type="time" required value="${escapeHtml(activity.end)}"></label>
@@ -1713,6 +1752,7 @@ function showAddActivity() {
         <label>Date<select name="dayDate">${itinerary.days.map((day) => `<option value="${day.date}" ${day.date === state.selectedDate ? "selected" : ""}>${escapeHtml(formatDay(day.date))} — ${escapeHtml(day.city)}</option>`).join("")}</select></label>
         <label>Title<input name="title" maxlength="160" required></label>
         <label>Venue<input name="venue" maxlength="200"></label>
+        <label>Destination / Address<input name="address" maxlength="300" autocomplete="street-address"></label>
         <div class="form-columns"><label>Start<input name="start" type="time" required></label><label>End<input name="end" type="time" required></label></div>
         <label>Status<select name="status">${statuses.map((status) => `<option value="${status}">${escapeHtml(statusLabel(status))}</option>`).join("")}</select></label>
         <label>What to Wear<textarea name="whatToWear" rows="3" maxlength="1000"></textarea></label>
@@ -1734,6 +1774,7 @@ async function addActivity(event) {
     dayDate: form.get("dayDate"),
     title: listingTitle(form.get("title").trim()),
     venue: form.get("venue").trim(),
+    address: form.get("address").trim(),
     start: form.get("start"),
     end: form.get("end"),
     status: form.get("status"),
@@ -1946,7 +1987,7 @@ async function registerServiceWorker() {
   }
 }
 
-function offlineDocumentChoices(sourceDays = getDays()) {
+function offlineDocumentChoices(sourceDays = getAllDays()) {
   const choices = new Map();
   for (const day of sourceDays) {
     for (const activity of day.activities) {

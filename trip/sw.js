@@ -1,4 +1,4 @@
-const CACHE_VERSION = "my-travels-shell-v15";
+const CACHE_VERSION = "my-travels-shell-v16";
 const APP_SHELL = [
   "/trip/",
   "/trip/index.html",
@@ -35,10 +35,11 @@ self.addEventListener("fetch", (event) => {
   }
   event.respondWith(
     fetch(event.request)
-      .then((response) => {
+      .then(async (response) => {
         if (response.ok && requestUrl.origin === self.location.origin) {
           const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+          const cache = await caches.open(CACHE_VERSION);
+          await cache.put(event.request, copy);
         }
         return response;
       })

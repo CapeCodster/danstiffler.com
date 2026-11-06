@@ -146,7 +146,7 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v15')
+if (!tripServiceWorker.includes('my-travels-shell-v16')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
@@ -172,6 +172,20 @@ if (!tripJs.includes("function offlineDocumentChoices")
   || !tripJs.includes("activity.evidenceLabel")
   || !tripJs.includes("selected offline documents")) {
   violations.push("trip/js: encrypted offline selection does not include confirmations and reference documents");
+}
+if (!tripJs.includes('https://maps.apple.com/directions?')
+  || !tripJs.includes('mode: "driving"')
+  || !tripJs.includes('name="address"')) {
+  violations.push("trip directions: Apple Maps driving route or editable destination is missing");
+}
+if (!tripJs.includes('REFERENCE_ACTIVITY_IDS')
+  || !tripJs.includes('function getReferenceActivities()')
+  || !tripJs.includes('<h2>Travel Reference</h2>')
+  || !tripJs.includes('function offlineDocumentChoices(sourceDays = getAllDays())')) {
+  violations.push("trip reference: insurance is not separated from timed activities while remaining available offline");
+}
+if (!tripCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr))')) {
+  violations.push("trip forms: Start and End controls can overlap at phone widths");
 }
 if (!tripJs.includes('activity.kind === "ship"')
   || !tripJs.includes('"Asia/Ho_Chi_Minh": { name: "ICT", offset: "+0700" }')
