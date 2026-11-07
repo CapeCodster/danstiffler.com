@@ -53,7 +53,7 @@ assert.equal(itinerarySource.trip.media.seoul.night, "/trip/private/images/seoul
 
 const expectedFlightSeats = new Map([
   ["ke92", "Prestige Class · Dan 14H · Ken 14J"],
-  ["ke645", "Prestige Class · Seats 12H & 14H"],
+  ["ke645", "Prestige Class · Dan 12H · Ken 14H"],
   ["sq894", "Dan 32C · Ken 32A"],
   ["ke644", "Prestige Class · Dan 15D · Ken 15G"],
   ["ke91", "Prestige Class · Dan 10B · Ken 10A"],
