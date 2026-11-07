@@ -278,7 +278,7 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 .detail-pager-copy small, .detail-pager-copy strong { display: block; }
 .detail-pager-copy small { color: var(--muted); font-size: .68rem; font-weight: 760; text-transform: uppercase; letter-spacing: .05em; }
 .detail-pager-copy strong { margin-top: 2px; overflow: hidden; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
-.edit-back { margin: 0 0 12px; padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
+.edit-back { display: inline-flex; align-items: center; min-height: 42px; margin: 0 0 12px; padding: 7px 11px 7px 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--accent); box-shadow: 0 3px 10px rgba(0,0,0,.07); font-size: 1rem; font-weight: 690; line-height: 1; cursor: pointer; }
 .muted { color: var(--muted); }
 .edit-form { display: grid; gap: 10px; margin-top: 18px; }
 .form-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -338,6 +338,8 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 }
 
 @media (max-width: 430px) {
+  .form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .form-columns input[type="time"] { width: 100%; max-width: 100%; }
   .ticket-card .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ticket-card .button-row > :first-child:last-child { grid-column: 1 / -1; }
   .ticket-card .primary-button, .ticket-card .secondary-button { padding-inline: 10px; font-size: .84rem; }

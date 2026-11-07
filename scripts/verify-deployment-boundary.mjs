@@ -148,11 +148,19 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v18')
+if (!tripServiceWorker.includes('my-travels-shell-v19')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
+}
+if (!tripCss.includes(".edit-back { display: inline-flex; align-items: center; min-height: 42px;")
+  || !tripCss.includes("border-radius: 12px; background: var(--surface); color: var(--accent);")) {
+  violations.push("trip/css/trip.css: Add and Edit Back buttons are missing the rounded mobile treatment");
+}
+if (!tripCss.includes('.form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }')
+  || !tripCss.includes('.form-columns input[type="time"] { width: 100%; max-width: 100%; }')) {
+  violations.push("trip/css/trip.css: narrow-phone Start and End fields can overflow instead of stacking");
 }
 if (!tripShell.includes('id="forgotAccessCode"')
   || !tripJs.includes('fetchJson("/api/trip/recovery-reset"')
