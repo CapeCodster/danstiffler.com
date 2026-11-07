@@ -93,6 +93,18 @@ assert(itineraryResponse.status === 200, `Authenticated itinerary returned ${iti
 assert((itineraryResponse.headers.get("cache-control") || "").includes("no-store"), "Authenticated itinerary is missing no-store");
 const itinerary = await itineraryResponse.json();
 assert(Array.isArray(itinerary.itinerary?.days) && itinerary.itinerary.days.length >= 8, `${environmentLabel} itinerary is incomplete`);
+const flightActivities = itinerary.itinerary.days.flatMap((day) => day.activities);
+const expectedFlightSeats = new Map([
+  ["ke92", "Prestige Class · Dan 14H · Ken 14J"],
+  ["ke645", "Prestige Class · Seats 12H & 14H"],
+  ["sq894", "Dan 32C · Ken 32A"],
+  ["ke644", "Prestige Class · Dan 15D · Ken 15G"],
+  ["ke91", "Prestige Class · Dan 10B · Ken 10A"],
+]);
+for (const [id, seats] of expectedFlightSeats) {
+  const activity = flightActivities.find((candidate) => candidate.id === id);
+  assert(activity?.party === seats, `${id} seat assignments are incomplete`);
+}
 const loganDrive = itinerary.overrides?.["custom-drive-to-logan-airport"];
 assert(loganDrive?.custom === true, "Drive to Logan Airport activity is missing");
 assert(loganDrive.dayDate === "2026-11-13" && loganDrive.start === "07:00" && loganDrive.end === "08:10", "Drive to Logan Airport schedule is incorrect");
@@ -248,6 +260,7 @@ console.log(JSON.stringify({
   privateCredentialFileUpdated: true,
   loganDrive: true,
   seoulHero: true,
+  flightSeats: true,
   environment,
   privateCredentialFile: `trip/private/${credentialFilename}`,
 }));

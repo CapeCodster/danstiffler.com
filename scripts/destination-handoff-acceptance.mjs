@@ -51,10 +51,24 @@ assert.deepEqual(new Set(configuredSeoulDates), seoulHeroDates, "Seoul hero medi
 assert.equal(itinerarySource.trip.media.seoul.day, "/trip/private/images/seoul-day.jpg");
 assert.equal(itinerarySource.trip.media.seoul.night, "/trip/private/images/seoul-night.jpg");
 
+const expectedFlightSeats = new Map([
+  ["ke92", "Prestige Class · Dan 14H · Ken 14J"],
+  ["ke645", "Prestige Class · Seats 12H & 14H"],
+  ["sq894", "Dan 32C · Ken 32A"],
+  ["ke644", "Prestige Class · Dan 15D · Ken 15G"],
+  ["ke91", "Prestige Class · Dan 10B · Ken 10A"],
+]);
+const flightActivities = itinerarySource.days.flatMap((day) => day.activities);
+for (const [id, seats] of expectedFlightSeats) {
+  const activity = flightActivities.find((candidate) => candidate.id === id);
+  assert.equal(activity?.party, seats, `${id} seat assignments are incomplete`);
+}
+
 console.log(JSON.stringify({
   ok: true,
   singaporeBeforeArrival: true,
   hongKongAtScheduledArrival: true,
   itineraryDayBrowsingPreserved: true,
   seoulFlightDays: configuredSeoulDates.length,
+  flightSeatRecords: expectedFlightSeats.size,
 }));
