@@ -1,4 +1,4 @@
-const CACHE_VERSION = "my-travels-shell-v19";
+const CACHE_VERSION = "my-travels-shell-v20";
 const APP_SHELL = [
   "/trip/",
   "/trip/index.html",

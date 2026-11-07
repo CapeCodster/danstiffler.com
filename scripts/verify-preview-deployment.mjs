@@ -46,7 +46,7 @@ for (const forbidden of ["data-traveller=", "Choose a traveller", "Create a six-
 
 const serviceWorker = await fetchText("/trip/sw.js", { cache: "no-store" });
 assert(serviceWorker.response.status === 200, `Service worker returned ${serviceWorker.response.status}`);
-assert(serviceWorker.text.includes("my-travels-shell-v19"), `${environmentLabel} service worker cache version is incorrect`);
+assert(serviceWorker.text.includes("my-travels-shell-v20"), `${environmentLabel} service worker cache version is incorrect`);
 assert(serviceWorker.text.includes("/trip/js/activity-navigation.js"), `${environmentLabel} service worker does not cache activity navigation`);
 const activityNavigation = await fetchText("/trip/js/activity-navigation.js", { cache: "no-store" });
 assert(activityNavigation.response.status === 200, `Activity navigation module returned ${activityNavigation.response.status}`);
@@ -57,6 +57,7 @@ assert(tripJavascript.text.includes("data-previous-activity") && tripJavascript.
 assert(tripStyles.text.includes(".detail-topbar .detail-back-button") && tripStyles.text.includes(".detail-pager"), "Activity detail navigation styling is missing");
 assert(tripStyles.text.includes(".edit-back { display: inline-flex; align-items: center; min-height: 42px;") && tripStyles.text.includes("border-radius: 12px; background: var(--surface); color: var(--accent);"), "Add and Edit Back buttons are missing the rounded mobile treatment");
 assert(tripStyles.text.includes('.form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }') && tripStyles.text.includes('.form-columns input[type="time"] { width: 100%; max-width: 100%; }'), "Narrow-phone Start and End fields are not safely stacked");
+assert(tripStyles.text.includes(".edit-form select { height: 48px; min-height: 48px; }"), "Add and Edit dropdowns can collapse below the shared field height in Safari");
 const manifest = await fetchText("/trip/manifest.webmanifest", { cache: "no-store" });
 assert(manifest.response.status === 200, `Web manifest returned ${manifest.response.status}`);
 assert(manifest.text.includes("/trip/icons/icon-192.png"), "Offline manifest icon is missing");

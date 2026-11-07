@@ -148,7 +148,7 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v19')
+if (!tripServiceWorker.includes('my-travels-shell-v20')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
@@ -161,6 +161,9 @@ if (!tripCss.includes(".edit-back { display: inline-flex; align-items: center; m
 if (!tripCss.includes('.form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }')
   || !tripCss.includes('.form-columns input[type="time"] { width: 100%; max-width: 100%; }')) {
   violations.push("trip/css/trip.css: narrow-phone Start and End fields can overflow instead of stacking");
+}
+if (!tripCss.includes(".edit-form select { height: 48px; min-height: 48px; }")) {
+  violations.push("trip/css/trip.css: Add and Edit dropdowns can collapse below the shared field height in Safari");
 }
 if (!tripShell.includes('id="forgotAccessCode"')
   || !tripJs.includes('fetchJson("/api/trip/recovery-reset"')
