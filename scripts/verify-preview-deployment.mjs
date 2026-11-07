@@ -46,7 +46,15 @@ for (const forbidden of ["data-traveller=", "Choose a traveller", "Create a six-
 
 const serviceWorker = await fetchText("/trip/sw.js", { cache: "no-store" });
 assert(serviceWorker.response.status === 200, `Service worker returned ${serviceWorker.response.status}`);
-assert(serviceWorker.text.includes("my-travels-shell-v17"), "Production service worker cache version is incorrect");
+assert(serviceWorker.text.includes("my-travels-shell-v18"), `${environmentLabel} service worker cache version is incorrect`);
+assert(serviceWorker.text.includes("/trip/js/activity-navigation.js"), `${environmentLabel} service worker does not cache activity navigation`);
+const activityNavigation = await fetchText("/trip/js/activity-navigation.js", { cache: "no-store" });
+assert(activityNavigation.response.status === 200, `Activity navigation module returned ${activityNavigation.response.status}`);
+assert(activityNavigation.text.includes("export function activityNeighbors"), "Activity navigation module is incomplete");
+const tripJavascript = await fetchText("/trip/js/trip.js", { cache: "no-store" });
+const tripStyles = await fetchText("/trip/css/trip.css", { cache: "no-store" });
+assert(tripJavascript.text.includes("data-previous-activity") && tripJavascript.text.includes("data-next-activity"), "Activity detail navigation controls are missing");
+assert(tripStyles.text.includes(".detail-topbar .detail-back-button") && tripStyles.text.includes(".detail-pager"), "Activity detail navigation styling is missing");
 const manifest = await fetchText("/trip/manifest.webmanifest", { cache: "no-store" });
 assert(manifest.response.status === 200, `Web manifest returned ${manifest.response.status}`);
 assert(manifest.text.includes("/trip/icons/icon-192.png"), "Offline manifest icon is missing");

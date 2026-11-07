@@ -9,6 +9,7 @@ import {
 } from "./offline-vault.js";
 import { queuePendingMutation, reconcileSyncResult, removalPolicy } from "./pending-sync.js";
 import { destinationPresentation } from "./destination-presentation.js";
+import { activityNeighbors } from "./activity-navigation.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1490,6 +1491,7 @@ async function updateOfflineUnlockCode(event) {
 function openActivity(id, editMode = false) {
   const activity = findActivity(id);
   if (!activity) return;
+  const { previous, next } = activityNeighbors(getDays(), id);
   state.editingActivityId = editMode ? id : null;
   const leave = leaveBy(activity);
   const transport = transportFor(activity);
@@ -1505,13 +1507,20 @@ function openActivity(id, editMode = false) {
     ? renderActivityEdit(activity)
     : `
       <div class="activity-detail">
-        <div class="detail-topbar"><button type="button" data-close-detail>‹ <span>Today</span></button><button type="button" data-edit-activity="${escapeHtml(activity.id)}">Edit${state.offlineMode ? " offline" : ""}</button></div>
+        <div class="detail-topbar">
+          <button class="detail-back-button" type="button" data-close-detail aria-label="Close activity details"><span class="detail-back-chevron" aria-hidden="true">‹</span><span>Today</span></button>
+          <div class="detail-topbar-actions">
+            <button class="detail-topbar-nav" type="button" data-previous-activity="${escapeHtml(previous?.id || "")}" ${previous ? "" : "disabled"} aria-label="${previous ? `Previous itinerary item: ${escapeHtml(listingTitle(previous.title))}` : "No previous itinerary item"}"><span aria-hidden="true">‹</span></button>
+            <button class="detail-topbar-nav" type="button" data-next-activity="${escapeHtml(next?.id || "")}" ${next ? "" : "disabled"} aria-label="${next ? `Next itinerary item: ${escapeHtml(listingTitle(next.title))}` : "No next itinerary item"}"><span aria-hidden="true">›</span></button>
+            <button type="button" data-edit-activity="${escapeHtml(activity.id)}">Edit${state.offlineMode ? " offline" : ""}</button>
+          </div>
+        </div>
         <section class="detail-hero">
           ${renderPhotoPair(detailMedia, "detail-photo", activity.photoLabel || activity.city)}
           <strong>${escapeHtml(activity.photoLabel || activity.city)}</strong>
         </section>
         <div class="detail-content">
-          <h2>${escapeHtml(listingTitle(activity.title))}</h2>
+          <h2 id="activityDetailTitle" tabindex="-1">${escapeHtml(listingTitle(activity.title))}</h2>
           <p class="detail-date">${escapeHtml(formatDay(activity.dayDate))}</p>
           <span class="status-badge" data-status="${escapeHtml(activity.status)}">${escapeHtml(statusLabel(activity.status))}</span>
           ${referenceMaterial
@@ -1538,11 +1547,21 @@ function openActivity(id, editMode = false) {
           <button class="danger-button" type="button" data-set-status="cancelled">Cancel</button>
           ${activity.custom ? '<button class="danger-button" type="button" data-delete-activity>Delete added activity</button>' : (state.overrides[activity.id] ? '<button class="secondary-button" type="button" data-restore-activity>Restore original</button>' : "")}
           </div>`}
+          ${(previous || next) ? `<nav class="detail-pager" aria-label="Itinerary item navigation">
+            <button class="detail-pager-button detail-pager-button--previous" type="button" data-previous-activity="${escapeHtml(previous?.id || "")}" ${previous ? "" : "disabled"} aria-label="${previous ? `Previous itinerary item: ${escapeHtml(listingTitle(previous.title))}` : "No previous itinerary item"}">
+              <span class="detail-pager-arrow" aria-hidden="true">‹</span><span class="detail-pager-copy"><small>Previous</small><strong>${escapeHtml(previous ? listingTitle(previous.title) : "Start Of Trip")}</strong></span>
+            </button>
+            <button class="detail-pager-button detail-pager-button--next" type="button" data-next-activity="${escapeHtml(next?.id || "")}" ${next ? "" : "disabled"} aria-label="${next ? `Next itinerary item: ${escapeHtml(listingTitle(next.title))}` : "No next itinerary item"}">
+              <span class="detail-pager-copy"><small>Next</small><strong>${escapeHtml(next ? listingTitle(next.title) : "End Of Trip")}</strong></span><span class="detail-pager-arrow" aria-hidden="true">›</span>
+            </button>
+          </nav>` : ""}
         </div>
       </div>`;
 
   $('[data-close-detail]', activityDialogContent)?.addEventListener("click", () => activityDialog.close());
   $('[data-edit-activity]', activityDialogContent)?.addEventListener("click", () => openActivity(id, true));
+  $$('[data-previous-activity]', activityDialogContent).forEach((button) => button.addEventListener("click", () => openAdjacentActivity(previous)));
+  $$('[data-next-activity]', activityDialogContent).forEach((button) => button.addEventListener("click", () => openAdjacentActivity(next)));
   $$('[data-set-status]', activityDialogContent).forEach((button) => button.addEventListener("click", async () => {
     if (await saveOverride(id, { status: button.dataset.setStatus })) activityDialog.close();
   }));
@@ -1569,6 +1588,17 @@ function openActivity(id, editMode = false) {
     if (saved) activityDialog.close();
   });
   openDialog(activityDialog);
+}
+
+function openAdjacentActivity(activity) {
+  if (!activity) return;
+  state.selectedDate = activity.dayDate;
+  activityDialog.scrollTop = 0;
+  openActivity(activity.id);
+  requestAnimationFrame(() => {
+    activityDialog.scrollTop = 0;
+    $('#activityDetailTitle', activityDialogContent)?.focus({ preventScroll: true });
+  });
 }
 
 function renderActivityEdit(activity) {

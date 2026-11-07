@@ -37,6 +37,7 @@ const allowedFiles = new Set([
   "trip/icons/icon-512.png",
   "trip/icons/my-travels-globe.svg",
   "trip/js/trip.js",
+  "trip/js/activity-navigation.js",
   "trip/js/destination-presentation.js",
   "trip/js/offline-vault.js",
   "trip/js/pending-sync.js",
@@ -92,6 +93,7 @@ const homeShell = await fs.readFile(path.join(artifactRoot, "index.html"), "utf8
 const homeCss = await fs.readFile(path.join(artifactRoot, "css/styles.css"), "utf8").catch(() => "");
 const tripCss = await fs.readFile(path.join(artifactRoot, "trip/css/trip.css"), "utf8").catch(() => "");
 const tripJs = await fs.readFile(path.join(artifactRoot, "trip/js/trip.js"), "utf8").catch(() => "");
+const activityNavigationJs = await fs.readFile(path.join(artifactRoot, "trip/js/activity-navigation.js"), "utf8").catch(() => "");
 const destinationJs = await fs.readFile(path.join(artifactRoot, "trip/js/destination-presentation.js"), "utf8").catch(() => "");
 const tripManifest = await fs.readFile(path.join(artifactRoot, "trip/manifest.webmanifest"), "utf8").catch(() => "");
 const tripServiceWorker = await fs.readFile(path.join(artifactRoot, "trip/sw.js"), "utf8").catch(() => "");
@@ -146,8 +148,9 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v17')
+if (!tripServiceWorker.includes('my-travels-shell-v18')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
+  || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
 }
@@ -196,6 +199,17 @@ if (!tripJs.includes('activity.kind === "ship"')
   || !tripJs.includes('"Asia/Ho_Chi_Minh": { name: "ICT", offset: "+0700" }')
   || !tripCss.includes(".feature-actions--single")) {
   violations.push("trip/js: cruise schedule presentation or UTC+7 calendar support is missing");
+}
+if (!tripJs.includes('class="detail-back-button"')
+  || !tripCss.includes('.detail-topbar .detail-back-button')
+  || !tripCss.includes('border-radius: 12px')) {
+  violations.push("trip activity detail: rounded Today control is missing");
+}
+if (!tripJs.includes('data-previous-activity')
+  || !tripJs.includes('data-next-activity')
+  || !tripCss.includes('.detail-pager')
+  || !activityNavigationJs.includes('export function activityNeighbors')) {
+  violations.push("trip activity detail: previous and next itinerary navigation is missing");
 }
 if (!tripJs.includes('destinationPresentation(day, now, isActualToday)')
   || !destinationJs.includes('HKG')

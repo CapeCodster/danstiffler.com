@@ -20,6 +20,7 @@ const publicFiles = [
   "trip/icons/icon-512.png",
   "trip/icons/my-travels-globe.svg",
   "trip/js/trip.js",
+  "trip/js/activity-navigation.js",
   "trip/js/destination-presentation.js",
   "trip/js/offline-vault.js",
   "trip/js/pending-sync.js",
