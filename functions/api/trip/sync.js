@@ -1,68 +1,8 @@
 import { requireSession } from "../../_lib/auth.js";
+import { validateActivityChanges, validateCustomActivity } from "../../_lib/activity-validation.js";
 import { assertSameOrigin, errorResponse, json, methodNotAllowed, readJson, RequestError } from "../../_lib/http.js";
 
-const allowedStatuses = new Set(["confirmed", "purchased", "planned", "awaiting", "done", "skipped", "cancelled"]);
 const allowedKinds = new Set(["add", "update", "restore", "delete"]);
-
-function boundedText(value, name, maximum, { required = false } = {}) {
-  if (value == null && !required) return undefined;
-  if (typeof value !== "string") throw new RequestError(400, `Invalid ${name}`);
-  const text = value.trim();
-  if ((required && !text) || text.length > maximum) throw new RequestError(400, `Invalid ${name}`);
-  return text;
-}
-
-function validateTime(value, name) {
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(value))) throw new RequestError(400, `Invalid ${name} time`);
-  return String(value);
-}
-
-function validateChanges(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new RequestError(400, "Invalid activity changes");
-  const changes = {};
-  if ("title" in body) changes.title = boundedText(body.title, "title", 160, { required: true });
-  if ("start" in body) changes.start = validateTime(body.start, "start");
-  if ("end" in body) changes.end = validateTime(body.end, "end");
-  for (const [key, maximum] of [["venue", 200], ["address", 300], ["whatToWear", 1000], ["note", 2000], ["party", 120]]) {
-    if (key in body) changes[key] = boundedText(body[key], key, maximum) || "";
-  }
-  if ("status" in body) {
-    if (!allowedStatuses.has(body.status)) throw new RequestError(400, "Invalid status");
-    changes.status = body.status;
-  }
-  for (const key of ["travelMinutes", "arrivalBufferMinutes"]) {
-    if (key in body) {
-      const value = Number(body[key]);
-      if (!Number.isInteger(value) || value < 0 || value > 1440) throw new RequestError(400, `Invalid ${key}`);
-      changes[key] = value;
-    }
-  }
-  if ("fixed" in body) changes.fixed = Boolean(body.fixed);
-  if (!Object.keys(changes).length) throw new RequestError(400, "No supported changes supplied");
-  return changes;
-}
-
-function validateCustomActivity(body, dayDates) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new RequestError(400, "Invalid custom activity");
-  const dayDate = String(body.dayDate || "");
-  if (!dayDates.has(dayDate)) throw new RequestError(400, "Invalid activity date");
-  return {
-    custom: true,
-    dayDate,
-    title: boundedText(body.title, "title", 160, { required: true }),
-    start: validateTime(body.start, "start"),
-    end: validateTime(body.end, "end"),
-    venue: boundedText(body.venue || "", "venue", 200) || "",
-    address: boundedText(body.address || "", "address", 300) || "",
-    status: allowedStatuses.has(body.status) ? body.status : "planned",
-    fixed: Boolean(body.fixed),
-    travelMinutes: Number.isInteger(Number(body.travelMinutes)) ? Math.max(0, Math.min(1440, Number(body.travelMinutes))) : 0,
-    arrivalBufferMinutes: Number.isInteger(Number(body.arrivalBufferMinutes)) ? Math.max(0, Math.min(1440, Number(body.arrivalBufferMinutes))) : 0,
-    whatToWear: boundedText(body.whatToWear || "", "whatToWear", 1000) || "",
-    note: boundedText(body.note || "", "note", 2000) || "",
-    party: boundedText(body.party || "", "party", 120) || "",
-  };
-}
 
 function activityIndex(itinerary) {
   return new Set(itinerary.days.flatMap((day) => day.activities.map((activity) => String(activity.id))));
@@ -133,7 +73,7 @@ async function applyMutation(env, session, mutation, baseIds, dayDates) {
 
   if (mutation.kind === "update") {
     if (!isBase && !isCustom) throw new RequestError(400, "Unknown activity");
-    const changes = validateChanges(mutation.changes);
+    const changes = validateActivityChanges(mutation.changes, dayDates);
     const value = { ...(current.value || {}), ...changes, ...stamp };
     let result;
     if (current.revision) {
@@ -176,7 +116,7 @@ export async function onRequest(context) {
     if (!assertSameOrigin(request)) throw new RequestError(403, "Origin check failed");
     const auth = await requireSession(request, env);
     if (auth.response) return auth.response;
-    const body = await readJson(request, 65536);
+    const body = await readJson(request, 262144);
     if (!Array.isArray(body.mutations) || body.mutations.length < 1 || body.mutations.length > 50) {
       throw new RequestError(400, "Supply between 1 and 50 mutations");
     }

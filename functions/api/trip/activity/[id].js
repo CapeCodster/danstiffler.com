@@ -1,31 +1,6 @@
 import { requireSession } from "../../../_lib/auth.js";
+import { validateActivityChanges } from "../../../_lib/activity-validation.js";
 import { assertSameOrigin, errorResponse, json, methodNotAllowed, readJson, RequestError } from "../../../_lib/http.js";
-
-const allowedStatuses = new Set(["confirmed", "purchased", "planned", "awaiting", "done", "skipped", "cancelled"]);
-
-function validateChanges(body) {
-  const changes = {};
-  if ("title" in body) {
-    if (typeof body.title !== "string" || body.title.trim().length < 1 || body.title.length > 160) throw new RequestError(400, "Invalid title");
-    changes.title = body.title.trim();
-  }
-  for (const key of ["start", "end"]) {
-    if (key in body) {
-      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(body[key]))) throw new RequestError(400, `Invalid ${key} time`);
-      changes[key] = String(body[key]);
-    }
-  }
-  if ("whatToWear" in body) {
-    if (typeof body.whatToWear !== "string" || body.whatToWear.length > 1000) throw new RequestError(400, "Invalid clothing note");
-    changes.whatToWear = body.whatToWear.trim();
-  }
-  if ("status" in body) {
-    if (!allowedStatuses.has(body.status)) throw new RequestError(400, "Invalid status");
-    changes.status = body.status;
-  }
-  if (!Object.keys(changes).length) throw new RequestError(400, "No supported changes supplied");
-  return changes;
-}
 
 export async function onRequest(context) {
   const { request, env, params } = context;
@@ -42,13 +17,25 @@ export async function onRequest(context) {
       return json({ activityId, restored: true });
     }
 
-    const changes = validateChanges(await readJson(request, 8192));
+    const base = await env.DB.prepare("SELECT json_value FROM travel_state WHERE state_key = 'itinerary' LIMIT 1").first();
+    if (!base) throw new RequestError(503, "Trip data is not configured");
+    const itinerary = JSON.parse(String(base.json_value));
+    const changes = validateActivityChanges(await readJson(request, 262144), new Set(itinerary.days.map((day) => String(day.date))));
+    const current = await env.DB.prepare(
+      "SELECT json_value FROM travel_activity_overrides WHERE activity_id = ?1 LIMIT 1",
+    ).bind(activityId).first();
     const now = Date.now();
+    const value = {
+      ...(current ? JSON.parse(String(current.json_value)) : {}),
+      ...changes,
+      updatedAt: new Date(now).toISOString(),
+      updatedBy: auth.session.displayName,
+    };
     await env.DB.prepare(
       `INSERT INTO travel_activity_overrides (activity_id, json_value, updated_at, updated_by)
        VALUES (?1, ?2, ?3, ?4)
        ON CONFLICT(activity_id) DO UPDATE SET json_value = excluded.json_value, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
-    ).bind(activityId, JSON.stringify({ ...changes, updatedAt: new Date(now).toISOString(), updatedBy: auth.session.displayName }), now, auth.session.userId).run();
+    ).bind(activityId, JSON.stringify(value), now, auth.session.userId).run();
     return json({ activityId, changes });
   } catch (error) {
     return errorResponse(error, request);

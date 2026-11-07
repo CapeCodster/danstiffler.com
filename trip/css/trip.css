@@ -285,6 +285,49 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 .form-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .form-columns > label, .form-columns input { min-width: 0; }
 .edit-form textarea { resize: vertical; min-height: 100px; }
+.activity-type-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.activity-type-option { min-width: 0; min-height: 92px; display: grid; place-items: center; align-content: center; gap: 7px; padding: 12px 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); cursor: pointer; text-align: center; }
+.activity-type-option span { color: var(--accent); font-size: 1.55rem; line-height: 1; }
+.activity-type-option strong { font-size: .78rem; line-height: 1.25; }
+.activity-type-option--general { grid-column: 1 / -1; min-height: 68px; grid-template-columns: auto auto; }
+.draft-resume { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.draft-resume p { margin: 5px 0 0; color: var(--muted); font-size: .84rem; }
+.type-aware-form { gap: 14px; }
+.type-aware-form .form-section { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.type-aware-form .form-section--essential > h3 { margin: 0 0 6px; font-size: 1rem; }
+.type-aware-form .form-section--optional { padding: 0; overflow: hidden; }
+.type-aware-form .form-section--optional > summary, .type-aware-form .subtype-fields > summary, .type-aware-form .leg-options > summary { min-height: 48px; display: flex; align-items: center; padding: 11px 13px; color: var(--accent-strong); font-weight: 760; cursor: pointer; }
+.form-section-body { padding: 0 13px 13px; }
+.form-guidance, .private-field-note, .section-empty { margin: 7px 0 10px; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.private-field-note { color: var(--warning); }
+.type-aware-form fieldset { min-width: 0; margin: 12px 0 0; padding: 10px; border: 1px solid var(--line); border-radius: 13px; }
+.type-aware-form fieldset legend { padding: 0 5px; color: var(--muted); font-size: .74rem; font-weight: 800; letter-spacing: .04em; }
+.traveler-fieldset, .backup-service-fieldset { display: flex; flex-wrap: wrap; gap: 12px; }
+.traveler-fieldset .checkbox-row, .backup-service-fieldset .checkbox-row { margin: 0; }
+.flight-legs { display: grid; gap: 14px; margin-top: 12px; }
+.flight-leg-card { min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: 15px; background: var(--surface-soft); }
+.flight-leg-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.flight-leg-card > header > div { display: flex; align-items: center; gap: 8px; }
+.leg-number { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; }
+.compact-button { min-height: 38px; padding: 7px 9px; font-size: .75rem; }
+.flight-endpoint { display: grid; gap: 0; }
+.leg-options, .subtype-fields { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.journey-summary { margin-top: 14px; padding: 12px; border-radius: 13px; background: color-mix(in srgb, var(--accent) 9%, var(--surface)); }
+.journey-summary h3, .journey-summary p { margin: 0; }
+.journey-summary p + p { margin-top: 6px; }
+.connection-summary { color: var(--muted); font-size: .8rem; }
+.connection-summary.needs-review, .form-warning { color: var(--warning); }
+.attached-document-list { display: grid; gap: 7px; margin: 8px 0; padding: 0; list-style: none; }
+.attached-document-list li { padding: 9px 10px; border-radius: 10px; background: var(--surface-soft); }
+.attached-document-list span, .attached-document-list small { display: block; }
+.attached-document-list small { margin-top: 2px; color: var(--muted); }
+.sticky-form-actions { position: sticky; bottom: 0; z-index: 5; margin: 0 -16px -18px; padding: 11px 16px max(11px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 96%, transparent); backdrop-filter: blur(16px); }
+.connection-label { display: block; margin-top: 7px; color: var(--accent-strong); font-size: .72rem; font-weight: 720; }
+.connection-label.needs-review { color: var(--warning); }
+.journey-detail-summary, .detail-documents { margin: 10px 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+.journey-detail-summary p, .detail-documents h3 { margin: 4px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.detail-documents h3 { margin: 0 0 8px; color: var(--text); font-size: .9rem; }
+.standalone-action { width: 100%; margin-top: 8px; }
 .reference-list { display: grid; gap: 10px; margin-top: 10px; }
 .reference-card { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
 .reference-card h3, .reference-card p { margin: 0; }
@@ -341,6 +384,12 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 @media (max-width: 430px) {
   .form-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .form-columns input[type="time"] { width: 100%; max-width: 100%; }
+  .type-aware-form .form-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .type-aware-form .form-columns > label, .type-aware-form .form-columns input, .type-aware-form .form-columns select { min-width: 0; max-width: 100%; }
+  .type-aware-form .form-section { padding: 11px; }
+  .flight-leg-card { padding: 10px; }
+  .flight-leg-card > header { align-items: flex-start; }
+  .sticky-form-actions { grid-template-columns: 1fr 1fr; }
   .ticket-card .button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ticket-card .button-row > :first-child:last-child { grid-column: 1 / -1; }
   .ticket-card .primary-button, .ticket-card .secondary-button { padding-inline: 10px; font-size: .84rem; }

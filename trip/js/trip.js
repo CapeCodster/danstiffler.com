@@ -10,6 +10,25 @@ import {
 import { queuePendingMutation, reconcileSyncResult, removalPolicy } from "./pending-sync.js";
 import { destinationPresentation } from "./destination-presentation.js";
 import { activityNeighbors } from "./activity-navigation.js";
+import {
+  activityTypeFor,
+  cityRideServices,
+  durationLabel,
+  editableActivityId,
+  flightJourneySummary,
+  materializeActivityDays,
+  transitAppleMapsUrl,
+  typeDetailsFor,
+} from "./activity-model.js";
+import {
+  accommodationVisibility,
+  activityFromForm,
+  defaultActivityDraft,
+  flightSummaryMarkup,
+  nextFlightLeg,
+  renderActivityForm,
+  renderTypePicker,
+} from "./activity-form.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -133,6 +152,7 @@ const state = {
   view: "today",
   selectedDate: selectInitialDate(),
   editingActivityId: null,
+  editingReturnActivityId: null,
   overrides: SERVER_AUTH ? {} : readJson(localStorage.getItem(STORAGE.overrides), {}),
   theme: localStorage.getItem(STORAGE.theme) || "system",
   serviceWorker: null,
@@ -147,6 +167,7 @@ const state = {
   conflicts: [],
   pendingChangedAt: null,
   pendingExportedAt: null,
+  activityDrafts: new Map(),
 };
 
 applyTheme(state.theme);
@@ -766,31 +787,7 @@ $$('.nav-item').forEach((button) => {
 });
 
 function getAllDays() {
-  return itinerary.days.map((day) => ({
-    ...day,
-    activities: [
-      ...day.activities.map((activity) => ({
-        ...activity,
-        ...(state.overrides[activity.id] || {}),
-        original: activity,
-        custom: false,
-        dayDate: day.date,
-        city: day.city,
-        timeZone: day.timeZone,
-      })),
-      ...Object.entries(state.overrides)
-        .filter(([, value]) => value?.custom && value.dayDate === day.date)
-        .map(([id, activity]) => ({
-          ...activity,
-          id,
-          original: null,
-          custom: true,
-          dayDate: day.date,
-          city: day.city,
-          timeZone: day.timeZone,
-        })),
-    ].sort((left, right) => left.start.localeCompare(right.start)),
-  }));
+  return materializeActivityDays(itinerary.days, state.overrides).days;
 }
 
 function getDays() {
@@ -805,7 +802,13 @@ function getReferenceActivities() {
 }
 
 function findActivity(id) {
-  return getAllDays().flatMap((day) => day.activities).find((activity) => activity.id === id);
+  const materialized = materializeActivityDays(itinerary.days, state.overrides);
+  return materialized.projections.find((activity) => activity.id === id)
+    || materialized.roots.get(editableActivityId(id));
+}
+
+function findEditableActivity(activityOrId) {
+  return materializeActivityDays(itinerary.days, state.overrides).roots.get(editableActivityId(activityOrId));
 }
 
 function localIsoDate(date, timeZone) {
@@ -905,7 +908,9 @@ function carIcon() {
 }
 
 function isPrebookedJourney(activity) {
-  return new Set(["sin-transfer", "hkg-transfer", "kai-tak"]).has(activity.id)
+  const root = findEditableActivity(activity) || activity;
+  return Boolean(root.transfer?.prebooked)
+    || new Set(["sin-transfer", "hkg-transfer", "kai-tak"]).has(editableActivityId(activity))
     || /\b(airport pickup|car to|transfer to)\b/i.test(activity.title || "");
 }
 
@@ -915,31 +920,42 @@ function destinationFor(activity) {
     "hkg-transfer": "JW Marriott Hotel Hong Kong, 88 Queensway, Admiralty, Hong Kong",
     "kai-tak": "Kai Tak Cruise Terminal, 33 Shing Fung Road, Kowloon, Hong Kong",
   };
-  return knownJourneyDestinations[activity.id] || activity.address || activity.venue || activity.title;
+  const root = findEditableActivity(activity) || activity;
+  return root.transfer?.dropoff
+    || root.transit?.to
+    || knownJourneyDestinations[editableActivityId(activity)]
+    || activity.address
+    || activity.venue
+    || activity.title;
 }
 
 function transportFor(activity) {
-  const name = activity.city.includes("Singapore") ? "Grab" : "Uber";
+  const root = findEditableActivity(activity) || activity;
+  const prebooked = isPrebookedJourney(root);
+  const services = cityRideServices(activity.city, itinerary.trip.transportDefaults || {});
+  const requestedService = root.transfer?.service;
+  const name = prebooked ? (root.transfer?.backupServices?.[0] || services[0]) : (requestedService || services[0]);
   const destination = destinationFor(activity);
   const journeyNicknames = {
     "sin-transfer": "Singapore Changi Airport",
     "hkg-transfer": "JW Marriott Hotel Hong Kong",
     "kai-tak": "Kai Tak Cruise Terminal",
   };
-  const nickname = journeyNicknames[activity.id] || activity.venue || activity.title;
+  const nickname = journeyNicknames[editableActivityId(activity)] || root.transfer?.dropoff || activity.venue || activity.title;
   const uberParameters = new URLSearchParams({
     action: "setPickup",
     pickup: "my_location",
     "dropoff[nickname]": nickname,
     "dropoff[formatted_address]": destination,
   });
-  const url = name === "Grab"
+  const url = name.toLowerCase().includes("grab")
     ? "https://www.grab.com/sg/transport/"
     : `https://m.uber.com/ul/?${uberParameters}`;
-  return { name, url, destination, passesDestination: name === "Uber", isBackup: isPrebookedJourney(activity) };
+  return { name, url, destination, passesDestination: name.toLowerCase().includes("uber"), isBackup: prebooked };
 }
 
 function directionsFor(activity) {
+  if (activityTypeFor(activity) === "transit") return transitAppleMapsUrl(findEditableActivity(activity) || activity);
   const parameters = new URLSearchParams({
     destination: activity.address || activity.venue || activity.title,
     mode: "driving",
@@ -1064,6 +1080,7 @@ function renderDayStrip(days, activeDate) {
 
 function renderActivityCard(activity, highlighted = false) {
   const leave = leaveBy(activity);
+  const connection = activity.connection;
   return `
     <button class="activity-card ${highlighted ? "is-highlighted" : ""} ${["cancelled", "skipped"].includes(activity.status) ? "is-dimmed" : ""}" type="button" data-activity-id="${escapeHtml(activity.id)}">
       <span class="time-block"><strong>${escapeHtml(activityStartLabel(activity))}</strong><span>${escapeHtml(activityEndLabel(activity))}</span></span>
@@ -1072,9 +1089,21 @@ function renderActivityCard(activity, highlighted = false) {
         <p>${escapeHtml(activity.venue || activity.city)}</p>
         <span class="status-badge" data-status="${escapeHtml(activity.status)}">${escapeHtml(statusLabel(activity.status))}</span>
         ${leave ? `<span class="card-leave">Leave by ${escapeHtml(leave)}</span>` : ""}
+        ${connection ? `<span class="connection-label${connection.needsReview ? " needs-review" : ""}">${escapeHtml(`${durationLabel(connection.durationMinutes)} at ${connection.hub}${connection.overnight ? " · Overnight" : ""}${connection.airportChange ? " · Airport Change" : ""}`)}</span>` : ""}
       </span>
       <span class="chevron" aria-hidden="true">›</span>
     </button>`;
+}
+
+function activityDocuments(activity) {
+  const root = findEditableActivity(activity) || activity;
+  const documents = [
+    ...(root.documents || []),
+    ...((root.flight?.legs || []).flatMap((leg) => leg.documents || [])),
+  ];
+  if (root.ticket) documents.push({ url: root.ticket, label: root.ticketLabel || listingTitle(root.title), scope: "activity" });
+  if (root.evidence) documents.push({ url: root.evidence, label: root.evidenceLabel || `${listingTitle(root.title)} Confirmation`, scope: "activity" });
+  return [...new Map(documents.filter((document) => document?.url).map((document) => [document.url, document])).values()];
 }
 
 function renderItinerary() {
@@ -1093,7 +1122,8 @@ function renderItinerary() {
 }
 
 function renderTickets() {
-  const documents = getAllDays().flatMap((day) => day.activities).filter((activity) => activity.ticket || activity.evidence);
+  const roots = materializeActivityDays(itinerary.days, state.overrides).roots;
+  const documents = [...roots.values()].filter((activity) => activityDocuments(activity).length);
   mainContent.innerHTML = `
     <div class="view-content">
       <div class="page-intro"><p class="eyebrow">Trip documents</p><h1>Tickets & Confirmations</h1><p>Both travelers may view every document. A traveler label shows who uses a ticket, not who may open it.</p></div>
@@ -1105,8 +1135,7 @@ function renderTickets() {
             <p>${escapeHtml(activity.venue || activity.city)}</p>
             <span class="status-badge" data-status="${escapeHtml(activity.status)}">${escapeHtml(statusLabel(activity.status))}</span>
             <div class="button-row">
-              ${activity.ticket ? `<button class="primary-button" type="button" data-document-url="${escapeHtml(activity.ticket)}">${escapeHtml(activity.ticketLabel || (["peak-tram", "supertree"].includes(activity.id) ? "Show both tickets" : "Show ticket"))}</button>` : ""}
-              ${activity.evidence ? `<button class="secondary-button" type="button" data-document-url="${escapeHtml(activity.evidence)}">${escapeHtml(activity.evidenceLabel || "View confirmation")}</button>` : ""}
+              ${activityDocuments(activity).map((document, index) => `<button class="${index === 0 ? "primary-button" : "secondary-button"}" type="button" data-document-url="${escapeHtml(document.url)}">${escapeHtml(document.label || document.filename || "View Document")}</button>`).join("")}
               <button class="secondary-button" type="button" data-activity-id="${escapeHtml(activity.id)}">Details</button>
             </div>
           </article>`).join("") || '<div class="empty-state">No documents are available in this data set.</div>'}
@@ -1489,22 +1518,32 @@ async function updateOfflineUnlockCode(event) {
 }
 
 function openActivity(id, editMode = false) {
-  const activity = findActivity(id);
+  let activity = findActivity(id);
   if (!activity) return;
-  const { previous, next } = activityNeighbors(getDays(), id);
-  state.editingActivityId = editMode ? id : null;
+  const root = findEditableActivity(activity) || activity;
+  const rootId = editableActivityId(root);
+  if (activity.id === rootId && activityTypeFor(root) === "flight") {
+    const projections = materializeActivityDays(itinerary.days, state.overrides).projections.filter((candidate) => candidate.rootId === rootId);
+    activity = projections.find((candidate) => candidate.dayDate === state.selectedDate) || projections[0] || activity;
+  }
+  const { previous, next } = activityNeighbors(getDays(), activity.id);
+  state.editingActivityId = editMode ? rootId : null;
+  if (editMode) state.editingReturnActivityId = activity.id;
   const leave = leaveBy(activity);
   const transport = transportFor(activity);
   const prebooked = isPrebookedJourney(activity);
   const shipSchedule = activity.kind === "ship";
-  const referenceMaterial = isReferenceActivity(activity);
+  const referenceMaterial = isReferenceActivity(root);
   const hideTravelActions = shipSchedule || referenceMaterial;
   const detailMedia = mediaFor(activity.mediaKey || (activity.city.includes("Hong Kong") ? "hongKong" : "singapore"));
-  const ticketLabel = activity.ticketLabel || (["peak-tram", "supertree"].includes(activity.id) ? "Show both tickets" : "Show ticket");
+  const ticketLabel = root.ticketLabel || (["peak-tram", "supertree"].includes(rootId) ? "Show Both Tickets" : "Show Ticket");
   const evidenceLabel = activity.evidenceLabel || "View confirmation";
+  const type = activityTypeFor(root);
+  const protectedDocuments = activityDocuments(root);
+  const flightSummary = type === "flight" ? flightJourneySummary(root) : null;
 
   activityDialogContent.innerHTML = editMode
-    ? renderActivityEdit(activity)
+    ? renderActivityForm(root, activityFormContext("edit", root))
     : `
       <div class="activity-detail">
         <div class="detail-topbar">
@@ -1512,7 +1551,7 @@ function openActivity(id, editMode = false) {
           <div class="detail-topbar-actions">
             <button class="detail-topbar-nav" type="button" data-previous-activity="${escapeHtml(previous?.id || "")}" ${previous ? "" : "disabled"} aria-label="${previous ? `Previous itinerary item: ${escapeHtml(listingTitle(previous.title))}` : "No previous itinerary item"}"><span aria-hidden="true">‹</span></button>
             <button class="detail-topbar-nav" type="button" data-next-activity="${escapeHtml(next?.id || "")}" ${next ? "" : "disabled"} aria-label="${next ? `Next itinerary item: ${escapeHtml(listingTitle(next.title))}` : "No next itinerary item"}"><span aria-hidden="true">›</span></button>
-            <button type="button" data-edit-activity="${escapeHtml(activity.id)}">Edit${state.offlineMode ? " offline" : ""}</button>
+            <button type="button" data-edit-activity="${escapeHtml(rootId)}">Edit${state.offlineMode ? " Offline" : ""}</button>
           </div>
         </div>
         <section class="detail-hero">
@@ -1527,11 +1566,17 @@ function openActivity(id, editMode = false) {
             ? `<div class="detail-time-block"><span aria-hidden="true">▤</span><div><strong>Reference material</strong><small>${escapeHtml(activity.venue || activity.city)}</small></div></div>`
             : `<div class="detail-time-block"><span aria-hidden="true">◷</span><div><strong>${escapeHtml(activityTimeRange(activity))}</strong><small>${escapeHtml(activity.venue || activity.city)}</small></div></div>`}
           ${prebooked ? `<div class="transfer-plan">${carIcon()}<div><strong>${activity.status === "awaiting" ? "Prebooked transfer · confirmation pending" : "Prebooked transfer details"}</strong><p>${escapeHtml(activity.note || activity.bookingDetails || `Pickup is scheduled at ${activity.meetingPoint || activity.venue || activity.city}. Review the confirmation before departure.`)}</p></div></div>` : ""}
+          ${flightSummary ? `<div class="journey-detail-summary"><strong>${escapeHtml(flightSummary.route)}</strong><p>${flightSummary.legCount} Flight Leg${flightSummary.legCount === 1 ? "" : "s"}${flightSummary.connections.length ? ` · ${flightSummary.connections.map((connection) => `${durationLabel(connection.durationMinutes)} at ${connection.hub}${connection.overnight ? " Overnight" : ""}${connection.airportChange ? " Airport Change" : ""}`).join(" · ")}` : ""}</p></div>` : ""}
           ${activity.ticket ? `<button class="ticket-button" type="button" data-document-url="${escapeHtml(activity.ticket)}"><span aria-hidden="true">▱</span>${escapeHtml(ticketLabel)}</button>` : ""}
-          ${hideTravelActions ? "" : `<div class="detail-action-grid">
+          ${hideTravelActions ? "" : (type === "transit" ? `<div class="detail-action-grid">
+            <a class="outline-action" href="${directionsFor(activity)}" target="_blank" rel="noopener">↗ <span>View Transit Route</span></a>
+            <a class="outline-action" href="${directionsFor(activity)}" target="_blank" rel="noopener external">↗ <span>Open In Apple Maps</span></a>
+          </div>` : `<div class="detail-action-grid">
             <a class="outline-action" href="${directionsFor(activity)}" target="_blank" rel="noopener">↗ <span>Directions</span></a>
             <button class="outline-action" type="button" data-transport-activity="${escapeHtml(activity.id)}">${carIcon()}<span>${prebooked ? "Backup " : ""}${transport.name}</span></button>
-          </div>`}
+          </div>`)}
+          ${type === "flight" && root.flight?.airlineUrl ? `<a class="outline-action standalone-action" href="${escapeHtml(root.flight.airlineUrl)}" target="_blank" rel="noopener external">Open Airline App Or Website</a>` : ""}
+          ${type === "transit" ? `<div class="button-row"><button class="secondary-button" type="button" data-copy-value="${escapeHtml(root.transit?.from || "")}">Copy Origin</button><button class="secondary-button" type="button" data-copy-value="${escapeHtml(root.transit?.to || "")}">Copy Destination</button></div>` : ""}
           ${(activity.party || activity.paid) ? `<p class="party-line">♧ ${escapeHtml([activity.party, activity.paid].filter(Boolean).join(" · "))}</p>` : ""}
           <div class="detail-disclosures">
             <details><summary><span>⌖</span>Meeting point</summary><p>${escapeHtml(activity.meetingPoint || activity.address || activity.venue || activity.city)}</p></details>
@@ -1540,12 +1585,13 @@ function openActivity(id, editMode = false) {
           </div>
           <div class="travel-note">✎ ${escapeHtml(activity.whatToWear || (leave ? `Leave by ${leave}.` : "Check the activity details before departure."))}</div>
           ${activity.evidence ? `<button class="evidence-link" type="button" data-document-url="${escapeHtml(activity.evidence)}">${escapeHtml(evidenceLabel)}</button>` : ""}
+          ${protectedDocuments.filter((document) => document.url !== activity.ticket && document.url !== activity.evidence).length ? `<section class="detail-documents"><h3>Protected Documents</h3><div class="button-row">${protectedDocuments.filter((document) => document.url !== activity.ticket && document.url !== activity.evidence).map((document) => `<button class="secondary-button" type="button" data-document-url="${escapeHtml(document.url)}">${escapeHtml(document.label || document.filename || "View Document")}</button>`).join("")}</div>${state.offlineMode ? '<p class="security-note">Only documents selected for this device’s encrypted offline package can open while disconnected.</p>' : ""}</section>` : ""}
           ${state.offlineMode ? '<p class="security-note">Offline edits are encrypted on this device and marked pending until authenticated sync.</p>' : ""}
           ${referenceMaterial ? "" : `<div class="detail-actions">
           <button class="secondary-button" type="button" data-set-status="done">Done</button>
           <button class="secondary-button" type="button" data-set-status="skipped">Skip</button>
           <button class="danger-button" type="button" data-set-status="cancelled">Cancel</button>
-          ${activity.custom ? '<button class="danger-button" type="button" data-delete-activity>Delete added activity</button>' : (state.overrides[activity.id] ? '<button class="secondary-button" type="button" data-restore-activity>Restore original</button>' : "")}
+          ${root.custom ? '<button class="danger-button" type="button" data-delete-activity>Delete Added Activity</button>' : (state.overrides[rootId] ? '<button class="secondary-button" type="button" data-restore-activity>Restore Original</button>' : "")}
           </div>`}
           ${(previous || next) ? `<nav class="detail-pager" aria-label="Itinerary item navigation">
             <button class="detail-pager-button detail-pager-button--previous" type="button" data-previous-activity="${escapeHtml(previous?.id || "")}" ${previous ? "" : "disabled"} aria-label="${previous ? `Previous itinerary item: ${escapeHtml(listingTitle(previous.title))}` : "No previous itinerary item"}">
@@ -1559,34 +1605,25 @@ function openActivity(id, editMode = false) {
       </div>`;
 
   $('[data-close-detail]', activityDialogContent)?.addEventListener("click", () => activityDialog.close());
-  $('[data-edit-activity]', activityDialogContent)?.addEventListener("click", () => openActivity(id, true));
+  $('[data-edit-activity]', activityDialogContent)?.addEventListener("click", () => openActivity(activity.id, true));
   $$('[data-previous-activity]', activityDialogContent).forEach((button) => button.addEventListener("click", () => openAdjacentActivity(previous)));
   $$('[data-next-activity]', activityDialogContent).forEach((button) => button.addEventListener("click", () => openAdjacentActivity(next)));
   $$('[data-set-status]', activityDialogContent).forEach((button) => button.addEventListener("click", async () => {
-    if (await saveOverride(id, { status: button.dataset.setStatus })) activityDialog.close();
+    if (await saveOverride(rootId, { status: button.dataset.setStatus })) activityDialog.close();
   }));
   $('[data-restore-activity]', activityDialogContent)?.addEventListener("click", async () => {
-    if (await restoreOverride(id)) activityDialog.close();
+    if (await restoreOverride(rootId)) activityDialog.close();
   });
   $('[data-delete-activity]', activityDialogContent)?.addEventListener("click", async () => {
-    if (await deleteCustomActivity(id)) activityDialog.close();
+    if (await deleteCustomActivity(rootId)) activityDialog.close();
   });
   $$('[data-document-url]', activityDialogContent).forEach((button) => button.addEventListener("click", () => openDocument(button.dataset.documentUrl, button)));
   $('[data-transport-activity]', activityDialogContent)?.addEventListener("click", () => showTransportOptions(activity.id));
-  $('#activityEditForm', activityDialogContent)?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const saved = await saveOverride(id, {
-      title: listingTitle(form.get("title").trim()),
-      venue: form.get("venue").trim(),
-      address: form.get("address").trim(),
-      start: form.get("start"),
-      end: form.get("end"),
-      whatToWear: form.get("whatToWear").trim(),
-      status: form.get("status"),
-    });
-    if (saved) activityDialog.close();
-  });
+  $$('[data-copy-value]', activityDialogContent).forEach((button) => button.addEventListener("click", async () => {
+    try { await copyText(button.dataset.copyValue); button.textContent = "Copied"; }
+    catch { window.prompt("Copy this value", button.dataset.copyValue); }
+  }));
+  if (editMode) bindActivityForm(root, "edit");
   openDialog(activityDialog);
 }
 
@@ -1600,33 +1637,6 @@ function openAdjacentActivity(activity) {
     $('#activityDetailTitle', activityDialogContent)?.focus({ preventScroll: true });
   });
 }
-
-function renderActivityEdit(activity) {
-  const statuses = ["confirmed", "purchased", "planned", "awaiting", "done", "skipped", "cancelled"];
-  return `
-    <div class="modal-inner">
-      <button class="edit-back" type="button" data-close-detail>‹ Back</button>
-      <p class="detail-kicker">Edit activity</p>
-      <h2>${escapeHtml(listingTitle(activity.title))}</h2>
-      ${state.offlineMode ? '<div class="prototype-banner">Saved changes will remain encrypted on this device as pending sync.</div>' : ""}
-      <form class="edit-form" id="activityEditForm">
-        <label>Title<input name="title" required value="${escapeHtml(listingTitle(activity.title))}"></label>
-        <label>Venue<input name="venue" value="${escapeHtml(activity.venue || "")}"></label>
-        <label>Destination / Address<input name="address" value="${escapeHtml(activity.address || "")}" autocomplete="street-address"></label>
-        <div class="form-columns">
-          <label>Start<input name="start" type="time" required value="${escapeHtml(activity.start)}"></label>
-          <label>End<input name="end" type="time" required value="${escapeHtml(activity.end)}"></label>
-        </div>
-        <label>Status<select name="status">${statuses.map((status) => `<option value="${status}" ${activity.status === status ? "selected" : ""}>${escapeHtml(statusLabel(status))}</option>`).join("")}</select></label>
-        <label>What to Wear<textarea name="whatToWear" rows="4">${escapeHtml(activity.whatToWear || "")}</textarea></label>
-        <div class="button-row"><button class="primary-button" type="submit">Save changes</button><button class="secondary-button" type="button" data-cancel-edit>Cancel</button></div>
-      </form>
-    </div>`;
-}
-
-activityDialog.addEventListener("click", (event) => {
-  if (event.target.matches('[data-cancel-edit]')) openActivity(state.editingActivityId, false);
-});
 
 function mutationToken() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${randomString(12)}`;
@@ -1689,8 +1699,9 @@ async function syncMutationOnline(mutation) {
 }
 
 async function saveOverride(id, changes) {
+  id = editableActivityId(id);
   try {
-    const current = findActivity(id);
+    const current = findEditableActivity(id);
     const mutation = makeMutation("update", id, {
       changes,
       ...(current?.custom ? { activity: { ...current, ...changes, custom: true } } : {}),
@@ -1727,6 +1738,7 @@ async function saveOverride(id, changes) {
 }
 
 async function restoreOverride(id) {
+  id = editableActivityId(id);
   try {
     const mutation = makeMutation("restore", id);
     if (state.offlineMode) {
@@ -1750,6 +1762,7 @@ async function restoreOverride(id) {
 }
 
 async function deleteCustomActivity(id) {
+  id = editableActivityId(id);
   try {
     const mutation = makeMutation("delete", id);
     if (state.offlineMode) {
@@ -1770,79 +1783,207 @@ async function deleteCustomActivity(id) {
   }
 }
 
+function activityFormContext(mode, activity = {}) {
+  const day = itinerary.days.find((candidate) => candidate.date === (activity.dayDate || state.selectedDate)) || itinerary.days[0] || {};
+  return {
+    mode,
+    offline: state.offlineMode,
+    days: itinerary.days,
+    selectedDate: activity.dayDate || state.selectedDate,
+    city: activity.city || day.city || "",
+    timeZone: activity.timeZone || day.timeZone || "UTC",
+    transportDefaults: itinerary.trip.transportDefaults || {},
+  };
+}
+
+function activityDraftKey(mode, activity = {}) {
+  return mode === "edit" ? `edit:${editableActivityId(activity)}` : "add";
+}
+
 function showAddActivity() {
-  const statuses = ["planned", "confirmed", "awaiting", "purchased"];
-  activityDialogContent.innerHTML = `
-    <div class="modal-inner">
-      <button class="edit-back" type="button" data-close-add>‹ Back</button>
-      <p class="detail-kicker">${state.offlineMode ? "Add offline" : "Add activity"}</p>
-      <h2>New Activity</h2>
-      ${state.offlineMode ? '<div class="prototype-banner">This activity will be encrypted on this device and marked pending sync.</div>' : ""}
-      <form class="edit-form" id="addActivityForm">
-        <label>Date<select name="dayDate">${itinerary.days.map((day) => `<option value="${day.date}" ${day.date === state.selectedDate ? "selected" : ""}>${escapeHtml(formatDay(day.date))} — ${escapeHtml(day.city)}</option>`).join("")}</select></label>
-        <label>Title<input name="title" maxlength="160" required></label>
-        <label>Venue<input name="venue" maxlength="200"></label>
-        <label>Destination / Address<input name="address" maxlength="300" autocomplete="street-address"></label>
-        <div class="form-columns"><label>Start<input name="start" type="time" required></label><label>End<input name="end" type="time" required></label></div>
-        <label>Status<select name="status">${statuses.map((status) => `<option value="${status}">${escapeHtml(statusLabel(status))}</option>`).join("")}</select></label>
-        <label>What to Wear<textarea name="whatToWear" rows="3" maxlength="1000"></textarea></label>
-        <div class="button-row"><button class="primary-button" type="submit">Save activity</button><button class="secondary-button" type="button" data-close-add>Cancel</button></div>
-      </form>
-    </div>`;
-  $$('[data-close-add]', activityDialogContent).forEach((button) => button.addEventListener("click", () => activityDialog.close()));
-  $("#addActivityForm", activityDialogContent).addEventListener("submit", addActivity);
+  const draft = state.activityDrafts.get("add") || null;
+  activityDialogContent.innerHTML = renderTypePicker({ offline: state.offlineMode, draft });
+  $('[data-close-activity-form]', activityDialogContent)?.addEventListener("click", () => activityDialog.close());
+  $('[data-resume-activity-draft]', activityDialogContent)?.addEventListener("click", () => startActivityForm(draft, "add"));
+  $('[data-discard-activity-draft]', activityDialogContent)?.addEventListener("click", () => {
+    state.activityDrafts.delete("add");
+    showAddActivity();
+  });
+  $$('[data-activity-type]', activityDialogContent).forEach((button) => button.addEventListener("click", () => {
+    startActivityForm(defaultActivityDraft(button.dataset.activityType, activityFormContext("add")), "add");
+  }));
   openDialog(activityDialog);
 }
 
-async function addActivity(event) {
-  event.preventDefault();
-  const formElement = event.currentTarget;
-  const form = new FormData(formElement);
-  const id = `custom-${mutationToken().toLowerCase()}`;
-  const activity = {
-    custom: true,
-    dayDate: form.get("dayDate"),
-    title: listingTitle(form.get("title").trim()),
-    venue: form.get("venue").trim(),
-    address: form.get("address").trim(),
-    start: form.get("start"),
-    end: form.get("end"),
-    status: form.get("status"),
-    fixed: false,
-    travelMinutes: 0,
-    arrivalBufferMinutes: 0,
-    whatToWear: form.get("whatToWear").trim(),
-    updatedAt: new Date().toISOString(),
-    updatedBy: state.currentProfile,
+function startActivityForm(activity, mode) {
+  activityDialogContent.innerHTML = renderActivityForm(activity, activityFormContext(mode, activity));
+  bindActivityForm(activity, mode);
+}
+
+function bindActivityForm(baseActivity, mode) {
+  const form = $("#typeAwareActivityForm", activityDialogContent);
+  if (!form) return;
+  const draftKey = activityDraftKey(mode, baseActivity);
+  accommodationVisibility(form);
+
+  const rememberDraft = () => {
+    try { state.activityDrafts.set(draftKey, activityFromForm(form, baseActivity)); }
+    catch { /* Native validation will identify incomplete required fields. */ }
   };
-  const mutation = makeMutation("add", id, { activity });
-  const submit = $('button[type="submit"]', formElement);
+  const returnFromForm = () => {
+    rememberDraft();
+    if (mode === "edit") openActivity(state.editingReturnActivityId || editableActivityId(baseActivity), false);
+    else showAddActivity();
+  };
+  $('[data-close-activity-form]', activityDialogContent)?.addEventListener("click", returnFromForm);
+  $('[data-cancel-activity-form]', activityDialogContent)?.addEventListener("click", () => {
+    rememberDraft();
+    if (mode === "edit") openActivity(state.editingReturnActivityId || editableActivityId(baseActivity), false);
+    else activityDialog.close();
+  });
+  form.addEventListener("input", () => {
+    rememberDraft();
+    accommodationVisibility(form);
+    const summary = $('[data-flight-summary]', form);
+    if (summary) {
+      try { summary.innerHTML = flightSummaryMarkup(activityFromForm(form, baseActivity)); }
+      catch { /* Keep the previous summary while a field is temporarily incomplete. */ }
+    }
+  });
+  form.addEventListener("change", () => {
+    rememberDraft();
+    accommodationVisibility(form);
+  });
+  form.elements.activityType?.addEventListener("change", () => {
+    const nextType = form.elements.activityType.value;
+    const renderedType = form.dataset.renderedType || activityTypeFor(baseActivity);
+    form.elements.activityType.value = renderedType;
+    let draft = activityFromForm(form, baseActivity);
+    form.elements.activityType.value = nextType;
+    draft.activityType = nextType;
+    if (!draft[nextType]) {
+      const defaults = defaultActivityDraft(nextType, activityFormContext(mode, draft));
+      draft[nextType] = defaults[nextType];
+    }
+    state.activityDrafts.set(draftKey, draft);
+    startActivityForm(draft, mode);
+  });
+  $('[data-add-flight-leg]', form)?.addEventListener("click", () => {
+    const draft = activityFromForm(form, baseActivity);
+    draft.flight.legs.push(nextFlightLeg(draft.flight.legs, activityFormContext(mode, draft)));
+    state.activityDrafts.set(draftKey, draft);
+    startActivityForm(draft, mode);
+  });
+  $$('[data-remove-flight-leg]', form).forEach((button) => button.addEventListener("click", () => {
+    const draft = activityFromForm(form, baseActivity);
+    const index = Number(button.closest("[data-flight-leg]")?.dataset.flightLeg);
+    if (draft.flight.legs.length > 1 && Number.isInteger(index)) draft.flight.legs.splice(index, 1);
+    state.activityDrafts.set(draftKey, draft);
+    startActivityForm(draft, mode);
+  }));
+  form.addEventListener("submit", (event) => { void saveTypeAwareActivity(event, baseActivity, mode, draftKey); });
+}
+
+const ACTIVITY_PAYLOAD_FIELDS = [
+  "activityType", "dayDate", "title", "venue", "address", "start", "end", "endDate", "timeZone", "status",
+  "fixed", "travelMinutes", "arrivalBufferMinutes", "whatToWear", "note", "party", "bookingDetails", "meetingPoint",
+  "paid", "contact", "cancellationTerms", "bookingReference", "directions", "travelers", "cost", "documents",
+  "flight", "accommodation", "transfer", "transit", "tour", "dining", "general",
+];
+
+function activityPayload(activity, { custom = false } = {}) {
+  const payload = {};
+  const typedFields = new Set(["flight", "accommodation", "transfer", "transit", "tour", "dining", "general"]);
+  for (const field of ACTIVITY_PAYLOAD_FIELDS) {
+    if (typedFields.has(field) && field !== activity.activityType) continue;
+    if (Object.prototype.hasOwnProperty.call(activity, field)) payload[field] = structuredClone(activity[field]);
+  }
+  if (custom) payload.custom = true;
+  return payload;
+}
+
+function uploadSelections(form) {
+  const selections = [];
+  for (const file of form.elements.activityDocuments?.files || []) selections.push({ file, scope: "activity", legIndex: null });
+  $$('[data-flight-leg]', form).forEach((card, legIndex) => {
+    for (const file of card.querySelector('[name="legDocuments"]')?.files || []) selections.push({ file, scope: "leg", legIndex });
+  });
+  return selections;
+}
+
+function uploadContentType(file) {
+  if (file.type) return file.type;
+  const extension = file.name.split(".").at(-1)?.toLowerCase();
+  return { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", txt: "text/plain", eml: "message/rfc822" }[extension] || "";
+}
+
+async function uploadProtectedDocument(selection, activityId) {
+  if (selection.file.size < 1 || selection.file.size > (25 * 1024 * 1024)) throw new Error(`${selection.file.name} must be between 1 byte and 25 MB.`);
+  const contentType = uploadContentType(selection.file);
+  if (!contentType) throw new Error(`${selection.file.name} is not a supported document type.`);
+  const response = await fetch("/api/trip/document", {
+    method: "POST",
+    headers: {
+      "Content-Type": contentType,
+      "X-Trip-Size": String(selection.file.size),
+      "X-Trip-Filename": selection.file.name,
+      "X-Trip-Label": selection.file.name,
+      "X-Trip-Activity": activityId,
+      "X-Trip-Scope": selection.scope,
+      ...(selection.legIndex === null ? {} : { "X-Trip-Leg": String(selection.legIndex) }),
+    },
+    body: selection.file,
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(body.error || "The document could not be uploaded."), { status: response.status });
+  return body.document;
+}
+
+async function saveTypeAwareActivity(event, baseActivity, mode, draftKey) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const errorBox = $('[data-activity-form-error]', form);
+  const submit = $('button[type="submit"]', form);
+  errorBox.textContent = "";
+  if (!form.reportValidity()) return;
+  let activity;
+  try { activity = activityFromForm(form, baseActivity); }
+  catch { errorBox.textContent = "Review the required activity details and try again."; return; }
+  const selections = uploadSelections(form);
+  const id = mode === "add" ? `custom-${mutationToken().toLowerCase()}` : editableActivityId(baseActivity);
+  const payload = activityPayload(activity, { custom: mode === "add" });
   submit.disabled = true;
   submit.textContent = "Saving…";
   try {
-    if (state.offlineMode) {
-      state.overrides[id] = activity;
-      await stageOfflineMutation(mutation);
-      state.selectedDate = activity.dayDate;
-      activityDialog.close();
-      render();
-      return;
+    if (mode === "add") {
+      const mutation = makeMutation("add", id, { activity: payload });
+      if (state.offlineMode) { state.overrides[id] = payload; await stageOfflineMutation(mutation); }
+      else if (SERVER_AUTH) await syncMutationOnline(mutation);
+      else { state.overrides[id] = payload; persistOverrides(); }
+    } else if (!await saveOverride(id, payload)) {
+      throw new Error("The activity could not be saved.");
     }
-    if (SERVER_AUTH) {
-      await syncMutationOnline(mutation);
-      state.selectedDate = activity.dayDate;
-      activityDialog.close();
-      render();
-      return;
+
+    if (selections.length) {
+      const uploaded = await Promise.all(selections.map((selection) => uploadProtectedDocument(selection, id)));
+      const saved = findEditableActivity(id) || { ...activity, id };
+      const documents = [...(saved.documents || [])];
+      const flight = saved.flight ? structuredClone(saved.flight) : null;
+      for (const document of uploaded) {
+        if (document.scope === "leg" && flight?.legs?.[document.legIndex]) flight.legs[document.legIndex].documents = [...(flight.legs[document.legIndex].documents || []), document];
+        else documents.push(document);
+      }
+      if (!await saveOverride(id, { documents, ...(flight ? { flight } : {}) })) throw new Error("The documents uploaded, but their activity links could not be saved.");
     }
-    state.overrides[id] = activity;
-    persistOverrides();
+
+    state.activityDrafts.delete(draftKey);
+    state.selectedDate = activity.dayDate;
     activityDialog.close();
     render();
   } catch (error) {
     submit.disabled = false;
-    submit.textContent = "Save activity";
-    showNotice(error.status === 401 ? "Your session expired. Sign in again." : "The activity could not be added.");
+    submit.textContent = "Save Activity";
+    errorBox.textContent = error.status === 401 ? "Your session expired. Sign in again." : error.message || "The activity could not be saved.";
     if (error.status === 401) await signOut();
   }
 }
@@ -2021,10 +2162,10 @@ function offlineDocumentChoices(sourceDays = getAllDays()) {
   const choices = new Map();
   for (const day of sourceDays) {
     for (const activity of day.activities) {
-      for (const [kind, url, label] of [
-        ["ticket", activity.ticket, activity.ticketLabel || listingTitle(activity.title)],
-        ["confirmation", activity.evidence, activity.evidenceLabel || `${listingTitle(activity.title)} Confirmation`],
-      ]) {
+      for (const document of activityDocuments(activity)) {
+        const kind = document.scope === "leg" ? "flight leg" : "document";
+        const url = document.url;
+        const label = document.label || document.filename || listingTitle(activity.title);
         if (!url || choices.has(url)) continue;
         choices.set(url, { url, label, date: activity.dayDate || day.date, kind });
       }
@@ -2421,7 +2562,7 @@ async function performOfflineRemoval(archive, { afterRemove = null } = {}) {
 }
 
 function exportCalendar() {
-  const activeActivities = getDays().flatMap((day) => day.activities).filter((activity) => activity.status !== "cancelled");
+  const activeActivities = getDays().flatMap((day) => day.activities).filter((activity) => activity.status !== "cancelled" && activity.projectionKind !== "flight-arrival");
   const timeZones = [...new Set(activeActivities.filter((activity) => !activity.startUtc).map((activity) => activity.timeZone))];
   const lines = [
     "BEGIN:VCALENDAR",
@@ -2435,7 +2576,11 @@ function exportCalendar() {
 
   activeActivities.forEach((activity) => {
     const alertMinutes = Math.max(15, Number(activity.travelMinutes || 0) + Number(activity.arrivalBufferMinutes || 0));
-    const sequence = state.overrides[activity.id] ? 1 : 0;
+    const rootId = editableActivityId(activity);
+    const root = findEditableActivity(rootId);
+    const legId = activity.projectionKind === "flight-departure" ? (root?.flight?.legs?.[activity.flightLegIndex]?.legId || `leg-${activity.flightLegIndex + 1}`) : "";
+    const calendarId = legId ? `${rootId}-${legId}` : rootId;
+    const sequence = state.overrides[rootId] ? 1 : 0;
     const startLine = activity.startUtc
       ? `DTSTART:${utcStamp(new Date(activity.startUtc))}`
       : `DTSTART;TZID=${activity.timeZone}:${icsLocal(activity.dayDate, activity.start)}`;
@@ -2444,7 +2589,7 @@ function exportCalendar() {
       : `DTEND;TZID=${activity.timeZone}:${icsLocal(activity.endDate || activity.dayDate, activity.end)}`;
     lines.push(
       "BEGIN:VEVENT",
-      `UID:${escapeIcs(`${itinerary.trip.id}-${activity.id}@danstiffler.com`)}`,
+      `UID:${escapeIcs(`${itinerary.trip.id}-${calendarId}@danstiffler.com`)}`,
       `DTSTAMP:${utcStamp(new Date())}`,
       `SEQUENCE:${sequence}`,
       startLine,

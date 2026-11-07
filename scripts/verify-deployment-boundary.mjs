@@ -38,6 +38,9 @@ const allowedFiles = new Set([
   "trip/icons/my-travels-globe.svg",
   "trip/js/trip.js",
   "trip/js/activity-navigation.js",
+  "trip/js/activity-model.js",
+  "trip/js/activity-form.js",
+  "trip/js/activity-spreadsheet.js",
   "trip/js/destination-presentation.js",
   "trip/js/offline-vault.js",
   "trip/js/pending-sync.js",
@@ -94,6 +97,9 @@ const homeCss = await fs.readFile(path.join(artifactRoot, "css/styles.css"), "ut
 const tripCss = await fs.readFile(path.join(artifactRoot, "trip/css/trip.css"), "utf8").catch(() => "");
 const tripJs = await fs.readFile(path.join(artifactRoot, "trip/js/trip.js"), "utf8").catch(() => "");
 const activityNavigationJs = await fs.readFile(path.join(artifactRoot, "trip/js/activity-navigation.js"), "utf8").catch(() => "");
+const activityModelJs = await fs.readFile(path.join(artifactRoot, "trip/js/activity-model.js"), "utf8").catch(() => "");
+const activityFormJs = await fs.readFile(path.join(artifactRoot, "trip/js/activity-form.js"), "utf8").catch(() => "");
+const activitySpreadsheetJs = await fs.readFile(path.join(artifactRoot, "trip/js/activity-spreadsheet.js"), "utf8").catch(() => "");
 const destinationJs = await fs.readFile(path.join(artifactRoot, "trip/js/destination-presentation.js"), "utf8").catch(() => "");
 const tripManifest = await fs.readFile(path.join(artifactRoot, "trip/manifest.webmanifest"), "utf8").catch(() => "");
 const tripServiceWorker = await fs.readFile(path.join(artifactRoot, "trip/sw.js"), "utf8").catch(() => "");
@@ -148,10 +154,12 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v20')
+if (!tripServiceWorker.includes('my-travels-shell-v21')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
-  || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
+  || !tripServiceWorker.includes('/trip/js/destination-presentation.js')
+  || !tripServiceWorker.includes('/trip/js/activity-model.js')
+  || !tripServiceWorker.includes('/trip/js/activity-form.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
 }
 if (!tripCss.includes(".edit-back { display: inline-flex; align-items: center; min-height: 42px;")
@@ -189,7 +197,7 @@ if (!tripJs.includes("function offlineDocumentChoices")
 }
 if (!tripJs.includes('https://maps.apple.com/directions?')
   || !tripJs.includes('mode: "driving"')
-  || !tripJs.includes('name="address"')) {
+  || !activityFormJs.includes('name="accommodationAddress"')) {
   violations.push("trip directions: Apple Maps driving route or editable destination is missing");
 }
 if (!tripJs.includes('REFERENCE_ACTIVITY_IDS')
@@ -226,6 +234,16 @@ if (!tripJs.includes('destinationPresentation(day, now, isActualToday)')
   || !destinationJs.includes('HKG')
   || !destinationJs.includes('minutesAt(now, day.timeZone) >= minutesFromClock(arrival.activity.end)')) {
   violations.push("trip/js: itinerary-driven Singapore-to-Hong-Kong hero handoff is missing");
+}
+if (!activityModelJs.includes('export const ACCOMMODATION_SUBTYPES')
+  || !activityFormJs.includes('Choose Activity Type')
+  || !activityFormJs.includes('Private Check-In And Access Instructions')
+  || !activityFormJs.includes('data-flight-leg')) {
+  violations.push("trip activities: type-aware flight and accommodation editors are missing");
+}
+if (!activitySpreadsheetJs.includes('ACTIVITY_SPREADSHEET_VERSION')
+  || !activitySpreadsheetJs.includes('spreadsheetImportReview')) {
+  violations.push("trip activities: reusable workbook data contract or review engine is missing");
 }
 
 if (violations.length) {
