@@ -89,6 +89,22 @@ const loganDrive = itinerary.overrides?.["custom-drive-to-logan-airport"];
 assert(loganDrive?.custom === true, "Drive to Logan Airport activity is missing");
 assert(loganDrive.dayDate === "2026-11-13" && loganDrive.start === "07:00" && loganDrive.end === "08:10", "Drive to Logan Airport schedule is incorrect");
 assert(loganDrive.address === "Boston Logan International Airport Rental Car Center", "Drive to Logan Airport destination is incorrect");
+const seoulMedia = itinerary.itinerary.trip?.media?.seoul;
+assert(seoulMedia?.day === "/api/trip/document/media-seoul-day", "Daytime Seoul hero is missing");
+assert(seoulMedia?.night === "/api/trip/document/media-seoul-night", "Nighttime Seoul hero is missing");
+const seoulDates = new Set(["2026-11-13", "2026-11-14", "2026-12-06", "2026-12-07"]);
+for (const day of itinerary.itinerary.days.filter((candidate) => seoulDates.has(candidate.date))) {
+  assert(day.mediaKey === "seoul", "A Seoul flight day is not using the Seoul hero");
+}
+const seoulImages = await Promise.all([
+  fetch(new URL(seoulMedia.day, origin), { headers: { Cookie: danCookie }, cache: "no-store" }),
+  fetch(new URL(seoulMedia.night, origin), { headers: { Cookie: danCookie }, cache: "no-store" }),
+]);
+for (const response of seoulImages) {
+  assert(response.status === 200, "Protected Seoul hero returned a non-200 response");
+  assert((response.headers.get("content-type") || "").startsWith("image/jpeg"), "Protected Seoul hero is not a JPEG");
+  assert((await response.arrayBuffer()).byteLength > 100000, "Protected Seoul hero is unexpectedly small");
+}
 const serialized = JSON.stringify(itinerary);
 assert(!serialized.includes("/trip/private/") && !serialized.includes("/outputs/"), `${environmentLabel} itinerary exposes local private paths`);
 
@@ -223,6 +239,7 @@ console.log(JSON.stringify({
   replacementRecoverySetsInvalidated: true,
   privateCredentialFileUpdated: true,
   loganDrive: true,
+  seoulHero: true,
   environment,
   privateCredentialFile: `trip/private/${credentialFilename}`,
 }));

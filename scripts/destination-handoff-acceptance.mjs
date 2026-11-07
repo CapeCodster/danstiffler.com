@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { destinationPresentation } from "../trip/js/destination-presentation.js";
+import itinerarySource from "../trip/data/itinerary.local.js";
 
 const travelDay = {
   date: "2026-11-18",
@@ -42,9 +43,18 @@ assert.deepEqual(
   "other itinerary days must use their own configured destination",
 );
 
+const seoulHeroDates = new Set(["2026-11-13", "2026-11-14", "2026-12-06", "2026-12-07"]);
+const configuredSeoulDates = itinerarySource.days
+  .filter((day) => day.mediaKey === "seoul")
+  .map((day) => day.date);
+assert.deepEqual(new Set(configuredSeoulDates), seoulHeroDates, "Seoul hero media must cover both inbound and outbound Seoul flight days");
+assert.equal(itinerarySource.trip.media.seoul.day, "/trip/private/images/seoul-day.jpg");
+assert.equal(itinerarySource.trip.media.seoul.night, "/trip/private/images/seoul-night.jpg");
+
 console.log(JSON.stringify({
   ok: true,
   singaporeBeforeArrival: true,
   hongKongAtScheduledArrival: true,
   itineraryDayBrowsingPreserved: true,
+  seoulFlightDays: configuredSeoulDates.length,
 }));
