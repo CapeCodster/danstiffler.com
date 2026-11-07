@@ -1127,12 +1127,12 @@ function renderMore() {
           : `${archivedAt ? `Archived on this device ${escapeHtml(formatSyncTime(archivedAt))}. ` : ""}No encrypted offline copy is currently stored for ${escapeHtml(state.currentProfile)}.`}</p>
         <p>Save the itinerary, destination photos, tickets, confirmations, and reference documents on this device.</p>
         <div class="button-row">
-          ${unsyncedCount ? `<button class="primary-button" type="button" data-sync-pending>${state.offlineMode ? "Reconnect and sync" : "Unlock and sync changes"}</button>` : ""}
-          ${state.offlineMode ? '<button class="primary-button" type="button" disabled>Reconnect to update download</button>' : `<button class="primary-button" type="button" data-download-offline>${state.offlineSummary ? "Update offline download" : "Choose documents and download"}</button>`}
-          ${state.offlineSummary && !state.offlineMode ? '<button class="secondary-button" type="button" data-update-offline-code>Update offline unlock code</button>' : ""}
-          ${state.offlineSummary ? '<button class="secondary-button" type="button" data-remove-offline>Remove offline download</button><button class="danger-button" type="button" data-archive-local>Archive local copy</button>' : ""}
+          ${unsyncedCount ? `<button class="primary-button" type="button" data-sync-pending>${state.offlineMode ? "Reconnect And Sync" : "Unlock And Sync Changes"}</button>` : ""}
+          ${state.offlineMode ? '<button class="primary-button" type="button" disabled>Reconnect To Update Download</button>' : `<button class="primary-button" type="button" data-download-offline>${state.offlineSummary ? "Update Offline Download" : "Choose Documents And Download"}</button>`}
+          ${state.offlineSummary && !state.offlineMode ? '<button class="secondary-button" type="button" data-update-offline-code>Update Offline Unlock Code</button>' : ""}
+          ${state.offlineSummary ? '<button class="secondary-button" type="button" data-remove-offline>Remove Offline Download</button><button class="danger-button" type="button" data-archive-local>Archive Local Copy</button>' : ""}
         </div>
-        <details class="help-disclosure"><summary>Offline privacy and storage</summary><p>The saved trip is encrypted for this browser profile and unlocks with this traveler’s six-digit code. If the account code was changed on another device, use <strong>Update offline unlock code</strong> with the previous offline code and current account code. Removing or archiving affects only this device; the private server originals remain unchanged.</p></details>
+        <details class="help-disclosure"><summary>Offline Privacy And Storage</summary><p>The saved trip is encrypted for this browser profile and unlocks with this traveler’s six-digit code. If the account code was changed on another device, use <strong>Update Offline Unlock Code</strong> with the previous offline code and current account code. Removing or archiving affects only this device; the private server originals remain unchanged.</p></details>
       </section>`
     : `<section class="settings-section">
         <h2>Offline Trip</h2>

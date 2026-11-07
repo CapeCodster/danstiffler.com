@@ -146,7 +146,7 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v16')
+if (!tripServiceWorker.includes('my-travels-shell-v17')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
@@ -186,6 +186,11 @@ if (!tripJs.includes('REFERENCE_ACTIVITY_IDS')
 }
 if (!tripCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr))')) {
   violations.push("trip forms: Start and End controls can overlap at phone widths");
+}
+if (!tripCss.includes('text-transform: capitalize')
+  || !tripJs.includes('"Choose Documents And Download"')
+  || !tripJs.includes('<summary>Offline Privacy And Storage</summary>')) {
+  violations.push("trip controls: buttons and disclosure labels do not consistently use Title Case");
 }
 if (!tripJs.includes('activity.kind === "ship"')
   || !tripJs.includes('"Asia/Ho_Chi_Minh": { name: "ICT", offset: "+0700" }')

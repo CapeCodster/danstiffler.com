@@ -181,6 +181,12 @@ main { width: 100%; margin: 0 auto; }
 .secondary-button { background: var(--surface-soft); border-color: var(--line); color: var(--text); }
 .danger-button { background: transparent; border-color: color-mix(in srgb, var(--danger) 50%, transparent); color: var(--danger); }
 .button-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+button:not(.activity-card):not(.later-row):not(.day-button):not(.nav-item):not(.profile-button):not(.icon-button):not(.modal-close),
+.button-link,
+.outline-action,
+details > summary {
+  text-transform: capitalize;
+}
 .primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { opacity: .55; cursor: wait; }
 .instruction-list { margin: 14px 0 0; padding-left: 1.35rem; color: var(--muted); font-size: .82rem; line-height: 1.55; }
 .instruction-list li + li { margin-top: 7px; }

@@ -46,7 +46,7 @@ for (const forbidden of ["data-traveller=", "Choose a traveller", "Create a six-
 
 const serviceWorker = await fetchText("/trip/sw.js", { cache: "no-store" });
 assert(serviceWorker.response.status === 200, `Service worker returned ${serviceWorker.response.status}`);
-assert(serviceWorker.text.includes("my-travels-shell-v16"), "Production service worker cache version is incorrect");
+assert(serviceWorker.text.includes("my-travels-shell-v17"), "Production service worker cache version is incorrect");
 const manifest = await fetchText("/trip/manifest.webmanifest", { cache: "no-store" });
 assert(manifest.response.status === 200, `Web manifest returned ${manifest.response.status}`);
 assert(manifest.text.includes("/trip/icons/icon-192.png"), "Offline manifest icon is missing");
