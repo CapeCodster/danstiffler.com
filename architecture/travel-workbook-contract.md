@@ -15,6 +15,7 @@ Status: data contract included in the type-aware activity revision; final Excel 
 - Flight-leg rows that preserve one underlying journey while supporting multiple legs, local dates, local times, time zones, terminals, seats, and optional per-leg booking details.
 - A cabin dropdown on each flight leg with First Class, Business, Premium Economy, and Main Cabin. Existing airline-specific legacy values remain readable but are not offered for future entry.
 - Simple traveler seat cells: complete only Dan's seat for a solo Dan flight, only Ken's for a solo Ken flight, or both for a shared flight. Confirmation/receipt extraction can populate the same cells.
+- The Trip Details traveler roster supplies the default participants for new and legacy activities. Individual activities can still record an exception without changing the trip roster.
 
 The executable contract is in `trip/js/activity-spreadsheet.js` so the eventual Excel generator uses the app’s actual field definitions instead of a separately maintained list.
 

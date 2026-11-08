@@ -1794,6 +1794,7 @@ function activityFormContext(mode, activity = {}) {
     city: activity.city || day.city || "",
     timeZone: activity.timeZone || day.timeZone || "UTC",
     currentProfile: state.currentProfile,
+    tripTravelers: itinerary.trip.travelers || ["Dan", "Ken"],
     transportDefaults: itinerary.trip.transportDefaults || {},
   };
 }

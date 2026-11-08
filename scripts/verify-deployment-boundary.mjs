@@ -154,7 +154,7 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v22')
+if (!tripServiceWorker.includes('my-travels-shell-v23')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')
@@ -234,6 +234,9 @@ if (!tripJs.includes('destinationPresentation(day, now, isActualToday)')
   || !destinationJs.includes('HKG')
   || !destinationJs.includes('minutesAt(now, day.timeZone) >= minutesFromClock(arrival.activity.end)')) {
   violations.push("trip/js: itinerary-driven Singapore-to-Hong-Kong hero handoff is missing");
+}
+if (!tripJs.includes('tripTravelers: itinerary.trip.travelers || ["Dan", "Ken"]')) {
+  violations.push("trip/js/trip.js: trip-level traveler defaults are missing");
 }
 if (!activityModelJs.includes('export const ACCOMMODATION_SUBTYPES')
   || !activityFormJs.includes('Choose Activity Type')

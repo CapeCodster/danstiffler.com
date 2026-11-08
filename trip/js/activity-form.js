@@ -56,7 +56,7 @@ function timeZoneList() {
   return `<datalist id="travelTimeZones">${TIME_ZONE_SUGGESTIONS.map((zone) => `<option value="${zone}"></option>`).join("")}</datalist>`;
 }
 
-export function travelerSelectionFor(activity = {}) {
+export function travelerSelectionFor(activity = {}, defaultTravelers = []) {
   const explicitTravelers = Array.isArray(activity.travelers)
     ? ["Dan", "Ken"].filter((name) => activity.travelers.includes(name))
     : [];
@@ -64,7 +64,9 @@ export function travelerSelectionFor(activity = {}) {
   const flight = activityTypeFor(activity) === "flight" ? typeDetailsFor(activity, "flight") : null;
   const seatTravelers = new Set((flight?.legs || []).flatMap((leg) => (leg.seats || []).map((seat) => seat.traveler)));
   const source = String(activity.party || "");
-  return ["Dan", "Ken"].filter((name) => seatTravelers.has(name) || new RegExp(`\\b${name}\\b`, "i").test(source));
+  const inferredTravelers = ["Dan", "Ken"].filter((name) => seatTravelers.has(name) || new RegExp(`\\b${name}\\b`, "i").test(source));
+  if (inferredTravelers.length) return inferredTravelers;
+  return ["Dan", "Ken"].filter((name) => defaultTravelers.includes(name));
 }
 
 function travelerControls(travelers = []) {
@@ -154,9 +156,9 @@ function flightLegCard(leg, index, offline = false, travelers = []) {
   </section>`;
 }
 
-function flightFields(activity, offline = false) {
+function flightFields(activity, offline = false, defaultTravelers = []) {
   const details = typeDetailsFor(activity, "flight");
-  const travelers = travelerSelectionFor(activity);
+  const travelers = travelerSelectionFor(activity, defaultTravelers);
   return `<label>Journey Name<input name="journeyTitle" maxlength="160" value="${escapeHtml(details.journeyTitle || activity.title || "")}" required></label>
     <label>Airline App Or Website<input name="airlineUrl" type="url" maxlength="600" value="${escapeHtml(details.airlineUrl || activity.airlineUrl || "")}"></label>
     <datalist id="flightCabins">${FLIGHT_CABIN_OPTIONS.map((cabin) => `<option value="${cabin}"></option>`).join("")}</datalist>
@@ -243,7 +245,7 @@ function generalFields(activity) {
 
 function typeFields(activity, context) {
   const type = activityTypeFor(activity);
-  if (type === "flight") return flightFields(activity, context.offline);
+  if (type === "flight") return flightFields(activity, context.offline, context.tripTravelers);
   if (type === "accommodation") return accommodationFields(activity);
   if (type === "transfer") return transferFields(activity, context.city, context.transportDefaults || {});
   if (type === "transit") return transitFields(activity);
@@ -267,6 +269,7 @@ export function renderActivityForm(activity, context) {
   const type = activityTypeFor(activity);
   const label = ACTIVITY_TYPES.find((option) => option.id === type)?.label || "General Activity";
   const edit = context.mode === "edit";
+  const selectedTravelers = travelerSelectionFor(activity, context.tripTravelers);
   return `<div class="modal-inner type-aware-editor">
     <button class="edit-back" type="button" data-close-activity-form>‹ Back</button>
     <p class="detail-kicker">${edit ? "Edit Activity" : (context.offline ? "Add Offline" : "Add Activity")}</p>
@@ -277,7 +280,7 @@ export function renderActivityForm(activity, context) {
         <h3>Essentials</h3>
         <label>Activity Type<select name="activityType">${ACTIVITY_TYPES.map((option) => `<option value="${option.id}"${selected(option.id, type)}>${escapeHtml(option.label)}</option>`).join("")}</select></label>
         <p class="form-guidance">Changing type keeps the previous type-specific information for review. No information is silently removed.</p>
-        ${travelerControls(travelerSelectionFor(activity))}
+        ${travelerControls(selectedTravelers)}
         ${typeFields(activity, context)}
         <label>Booking Status<select name="status">${statusOptions(activity.status || "planned")}</select></label>
       </section>
@@ -292,7 +295,8 @@ export function defaultActivityDraft(type, context) {
   const day = context.days.find((candidate) => candidate.date === context.selectedDate) || context.days[0] || { date: "", timeZone: "UTC", city: "" };
   const routeCities = String(day.city || "").split(/\s*(?:→| to )\s*/i).map((city) => city.trim()).filter(Boolean);
   const currentTraveler = ["Dan", "Ken"].includes(context.currentProfile) ? context.currentProfile : "Dan";
-  const activity = { custom: true, activityType: type, dayDate: day.date, timeZone: day.timeZone, city: day.city, title: "", start: "09:00", end: "10:00", status: "planned", travelers: [currentTraveler], documents: [], cost: { amount: "", currency: "" } };
+  const tripTravelers = ["Dan", "Ken"].filter((name) => context.tripTravelers?.includes(name));
+  const activity = { custom: true, activityType: type, dayDate: day.date, timeZone: day.timeZone, city: day.city, title: "", start: "09:00", end: "10:00", status: "planned", travelers: tripTravelers.length ? tripTravelers : [currentTraveler], documents: [], cost: { amount: "", currency: "" } };
   if (type === "flight") activity.flight = { journeyTitle: "", bookingReference: "", airlineUrl: "", legs: [{ legId: "leg-1", airline: "", flightNumber: "", cabin: "", departure: { airport: "", city: routeCities[0] || day.city, terminal: "", date: day.date, time: "09:00", timeZone: day.timeZone }, arrival: { airport: "", city: routeCities[1] || "", terminal: "", date: day.date, time: "11:00", timeZone: day.timeZone }, seats: [], bookingReference: "", status: "", documents: [] }] };
   if (type === "accommodation") activity.accommodation = { subtype: "hotel-resort", propertyOrHostName: "", address: "", reservedFrom: day.date, reservedTo: day.date, checkInTime: "", checkOutTime: "", expectedArrivalDate: day.date, expectedArrivalTime: "15:00", expectedDepartureDate: day.date, expectedDepartureTime: "", roomDetails: "", listingUrl: "", accessInstructions: "", checkoutInstructions: "", directions: "", contactDetails: "" };
   if (type === "transfer") activity.transfer = { service: cityRideServices(day.city, context.transportDefaults || {})[0], pickup: "", dropoff: "", pickupDate: day.date, pickupTime: "09:00", expectedArrivalTime: "", meetingInstructions: "", providerContact: "", prebooked: false, backupServices: [] };

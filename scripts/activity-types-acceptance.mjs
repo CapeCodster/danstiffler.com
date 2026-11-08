@@ -135,14 +135,17 @@ assert.equal(typeDetailsFor(legacyFlight, "flight").legs[0].cabin, "Prestige Cla
 assert.deepEqual(travelerSelectionFor(legacyFlight), ["Dan", "Ken"]);
 assert.equal(typeDetailsFor({ ...legacyFlight, party: "Business Class · Dan 14H" }, "flight").legs[0].cabin, "Business");
 assert.equal(typeDetailsFor({ ...legacyFlight, party: "Economy Class · Dan 32C" }, "flight").legs[0].cabin, "Main Cabin");
+assert.deepEqual(travelerSelectionFor({ id: "legacy-tour", title: "Legacy Tour", travelers: [] }, ["Dan", "Ken"]), ["Dan", "Ken"]);
 
-const draftContext = { days, selectedDate: "2026-11-13", city: "Boston", timeZone: "America/New_York", currentProfile: "Dan" };
+const draftContext = { days, selectedDate: "2026-11-13", city: "Boston", timeZone: "America/New_York", currentProfile: "Dan", tripTravelers: ["Dan"] };
 const soloDraft = defaultActivityDraft("flight", draftContext);
 assert.deepEqual(soloDraft.travelers, ["Dan"]);
 const soloForm = renderActivityForm(soloDraft, { ...draftContext, mode: "add", offline: false });
 assert.match(soloForm, /data-seat-traveler-row="Dan"/);
 assert.match(soloForm, /data-seat-traveler-row="Ken" hidden/);
 assert.match(soloForm, /Dan’s Seat/);
+const sharedDraft = defaultActivityDraft("flight", { ...draftContext, tripTravelers: ["Dan", "Ken"] });
+assert.deepEqual(sharedDraft.travelers, ["Dan", "Ken"]);
 const sharedForm = renderActivityForm(flight, { ...draftContext, mode: "edit", offline: false });
 assert.doesNotMatch(sharedForm, /data-seat-traveler-row="Ken" hidden/);
 assert.match(sharedForm, /name="legCabin"[^>]*value="Prestige Class"/);
