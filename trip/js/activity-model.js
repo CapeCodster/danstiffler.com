@@ -10,6 +10,13 @@ export const ACTIVITY_TYPES = [
 
 export const ACTIVITY_TYPE_IDS = new Set(ACTIVITY_TYPES.map((type) => type.id));
 
+export const FLIGHT_CABIN_OPTIONS = [
+  "First Class",
+  "Business",
+  "Premium Economy",
+  "Main Cabin",
+];
+
 export const ACCOMMODATION_SUBTYPES = [
   { id: "hotel-resort", label: "Hotel Or Resort" },
   { id: "rental", label: "Airbnb Or Vrbo" },
@@ -113,6 +120,7 @@ function legacyFlight(activity) {
         time: activity.end || "",
         timeZone: String(activity.arrivalTimeZone || endpointTimeZone(arrivalEndpoint, activity.timeZone)),
       },
+      cabin: parseLegacyCabin(activity.party),
       seats: parseLegacySeats(activity.party),
       bookingReference: "",
       status: "",
@@ -128,6 +136,16 @@ function parseLegacySeats(party = "") {
     if (match) seats.push({ traveler: name, seat: match[1].toUpperCase() });
   }
   return seats;
+}
+
+function parseLegacyCabin(party = "") {
+  const text = String(party || "");
+  const match = text.match(/\b(First Class|Prestige Class|Business Class|Business|Premium Economy|Main Cabin|Economy Class|Economy)\b/i);
+  if (!match) return "";
+  const cabin = match[1].toLowerCase();
+  if (cabin === "business class" || cabin === "business") return "Business";
+  if (cabin === "economy class" || cabin === "economy" || cabin === "main cabin") return "Main Cabin";
+  return match[1].replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export function typeDetailsFor(activity = {}, type = activityTypeFor(activity)) {

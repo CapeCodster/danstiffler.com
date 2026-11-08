@@ -5,6 +5,7 @@ import {
   cityRideServices,
   connectionDetails,
   durationLabel,
+  FLIGHT_CABIN_OPTIONS,
   flightJourneySummary,
   legElapsedMinutes,
   typeDetailsFor,
@@ -53,6 +54,17 @@ function statusOptions(current) {
 
 function timeZoneList() {
   return `<datalist id="travelTimeZones">${TIME_ZONE_SUGGESTIONS.map((zone) => `<option value="${zone}"></option>`).join("")}</datalist>`;
+}
+
+export function travelerSelectionFor(activity = {}) {
+  const explicitTravelers = Array.isArray(activity.travelers)
+    ? ["Dan", "Ken"].filter((name) => activity.travelers.includes(name))
+    : [];
+  if (explicitTravelers.length || activity.custom || activity.flight) return explicitTravelers;
+  const flight = activityTypeFor(activity) === "flight" ? typeDetailsFor(activity, "flight") : null;
+  const seatTravelers = new Set((flight?.legs || []).flatMap((leg) => (leg.seats || []).map((seat) => seat.traveler)));
+  const source = String(activity.party || "");
+  return ["Dan", "Ken"].filter((name) => seatTravelers.has(name) || new RegExp(`\\b${name}\\b`, "i").test(source));
 }
 
 function travelerControls(travelers = []) {
@@ -108,15 +120,33 @@ function endpointFields(prefix, endpoint, title) {
   </fieldset>`;
 }
 
-function flightLegCard(leg, index, offline = false) {
+function flightSeatFields(seats, travelers) {
+  return ["Dan", "Ken"].map((traveler) => {
+    const visible = travelers.includes(traveler);
+    return `<label data-seat-traveler-row="${traveler}"${visible ? "" : " hidden"}>${traveler}’s Seat<input data-seat-traveler="${traveler}" maxlength="12" autocapitalize="characters" placeholder="14H" value="${escapeHtml(seats.get(traveler) || "")}"${visible ? "" : " disabled"}></label>`;
+  }).join("");
+}
+
+export function syncFlightSeatVisibility(form) {
+  const selectedTravelers = new Set(new FormData(form).getAll("travelers").map(String));
+  form.querySelectorAll("[data-seat-traveler-row]").forEach((row) => {
+    const visible = selectedTravelers.has(row.dataset.seatTravelerRow);
+    row.hidden = !visible;
+    const input = row.querySelector("[data-seat-traveler]");
+    if (input) input.disabled = !visible;
+  });
+}
+
+function flightLegCard(leg, index, offline = false, travelers = []) {
   const seats = new Map((leg.seats || []).map((seat) => [seat.traveler, seat.seat]));
   return `<section class="flight-leg-card" data-flight-leg="${index}">
     <header><div><span class="leg-number">${index + 1}</span><strong>Flight Leg ${index + 1}</strong></div><button class="secondary-button compact-button" type="button" data-remove-flight-leg${index === 0 ? " disabled" : ""}>Remove Leg</button></header>
     <div class="form-columns"><label>Airline<input name="legAirline" maxlength="120" value="${escapeHtml(leg.airline || "")}" required></label><label>Flight Number<input name="legFlightNumber" maxlength="20" autocapitalize="characters" value="${escapeHtml(leg.flightNumber || "")}" required></label></div>
+    <label>Cabin<input name="legCabin" list="flightCabins" maxlength="80" value="${escapeHtml(leg.cabin || "")}" placeholder="Business"></label>
     ${endpointFields("departure", leg.departure || {}, "Departure")}
     ${endpointFields("arrival", leg.arrival || {}, "Arrival")}
     <details class="leg-options"><summary>Seats And Separate Booking</summary><div class="form-section-body">
-      <div class="form-columns"><label>Dan’s Seat<input name="seatDan" maxlength="12" autocapitalize="characters" value="${escapeHtml(seats.get("Dan") || "")}"></label><label>Ken’s Seat<input name="seatKen" maxlength="12" autocapitalize="characters" value="${escapeHtml(seats.get("Ken") || "")}"></label></div>
+      <div class="seat-inputs" data-seat-inputs>${flightSeatFields(seats, travelers)}</div>
       <label>Leg Booking Reference<input name="legBookingReference" maxlength="120" value="${escapeHtml(leg.bookingReference || "")}"></label>
       <label>Leg Booking Status<select name="legStatus"><option value="">Use Journey Status</option>${statusOptions(leg.status || "")}</select></label>
       <label>Attach Leg Documents<input name="legDocuments" type="file" accept=".pdf,.jpg,.jpeg,.png,.txt,.eml,application/pdf,image/jpeg,image/png,text/plain,message/rfc822" multiple${offline ? " disabled" : ""}></label>
@@ -126,9 +156,11 @@ function flightLegCard(leg, index, offline = false) {
 
 function flightFields(activity, offline = false) {
   const details = typeDetailsFor(activity, "flight");
+  const travelers = travelerSelectionFor(activity);
   return `<label>Journey Name<input name="journeyTitle" maxlength="160" value="${escapeHtml(details.journeyTitle || activity.title || "")}" required></label>
     <label>Airline App Or Website<input name="airlineUrl" type="url" maxlength="600" value="${escapeHtml(details.airlineUrl || activity.airlineUrl || "")}"></label>
-    <div class="flight-legs" data-flight-legs>${(details.legs || []).map((leg, index) => flightLegCard(leg, index, offline)).join("")}</div>
+    <datalist id="flightCabins">${FLIGHT_CABIN_OPTIONS.map((cabin) => `<option value="${cabin}"></option>`).join("")}</datalist>
+    <div class="flight-legs" data-flight-legs>${(details.legs || []).map((leg, index) => flightLegCard(leg, index, offline, travelers)).join("")}</div>
     <button class="secondary-button add-leg-button" type="button" data-add-flight-leg>Add Flight Leg</button>
     <section class="journey-summary" data-flight-summary aria-live="polite">${flightSummaryMarkup({ ...activity, flight: details })}</section>
     ${timeZoneList()}`;
@@ -245,9 +277,9 @@ export function renderActivityForm(activity, context) {
         <h3>Essentials</h3>
         <label>Activity Type<select name="activityType">${ACTIVITY_TYPES.map((option) => `<option value="${option.id}"${selected(option.id, type)}>${escapeHtml(option.label)}</option>`).join("")}</select></label>
         <p class="form-guidance">Changing type keeps the previous type-specific information for review. No information is silently removed.</p>
+        ${travelerControls(travelerSelectionFor(activity))}
         ${typeFields(activity, context)}
         <label>Booking Status<select name="status">${statusOptions(activity.status || "planned")}</select></label>
-        ${travelerControls(activity.travelers || activity.party || [])}
       </section>
       ${commonOptionalSections(activity, context.offline)}
       <p class="form-error" data-activity-form-error role="alert"></p>
@@ -259,8 +291,9 @@ export function renderActivityForm(activity, context) {
 export function defaultActivityDraft(type, context) {
   const day = context.days.find((candidate) => candidate.date === context.selectedDate) || context.days[0] || { date: "", timeZone: "UTC", city: "" };
   const routeCities = String(day.city || "").split(/\s*(?:→| to )\s*/i).map((city) => city.trim()).filter(Boolean);
-  const activity = { custom: true, activityType: type, dayDate: day.date, timeZone: day.timeZone, city: day.city, title: "", start: "09:00", end: "10:00", status: "planned", travelers: ["Dan", "Ken"], documents: [], cost: { amount: "", currency: "" } };
-  if (type === "flight") activity.flight = { journeyTitle: "", bookingReference: "", airlineUrl: "", legs: [{ legId: "leg-1", airline: "", flightNumber: "", departure: { airport: "", city: routeCities[0] || day.city, terminal: "", date: day.date, time: "09:00", timeZone: day.timeZone }, arrival: { airport: "", city: routeCities[1] || "", terminal: "", date: day.date, time: "11:00", timeZone: day.timeZone }, seats: [], bookingReference: "", status: "", documents: [] }] };
+  const currentTraveler = ["Dan", "Ken"].includes(context.currentProfile) ? context.currentProfile : "Dan";
+  const activity = { custom: true, activityType: type, dayDate: day.date, timeZone: day.timeZone, city: day.city, title: "", start: "09:00", end: "10:00", status: "planned", travelers: [currentTraveler], documents: [], cost: { amount: "", currency: "" } };
+  if (type === "flight") activity.flight = { journeyTitle: "", bookingReference: "", airlineUrl: "", legs: [{ legId: "leg-1", airline: "", flightNumber: "", cabin: "", departure: { airport: "", city: routeCities[0] || day.city, terminal: "", date: day.date, time: "09:00", timeZone: day.timeZone }, arrival: { airport: "", city: routeCities[1] || "", terminal: "", date: day.date, time: "11:00", timeZone: day.timeZone }, seats: [], bookingReference: "", status: "", documents: [] }] };
   if (type === "accommodation") activity.accommodation = { subtype: "hotel-resort", propertyOrHostName: "", address: "", reservedFrom: day.date, reservedTo: day.date, checkInTime: "", checkOutTime: "", expectedArrivalDate: day.date, expectedArrivalTime: "15:00", expectedDepartureDate: day.date, expectedDepartureTime: "", roomDetails: "", listingUrl: "", accessInstructions: "", checkoutInstructions: "", directions: "", contactDetails: "" };
   if (type === "transfer") activity.transfer = { service: cityRideServices(day.city, context.transportDefaults || {})[0], pickup: "", dropoff: "", pickupDate: day.date, pickupTime: "09:00", expectedArrivalTime: "", meetingInstructions: "", providerContact: "", prebooked: false, backupServices: [] };
   if (type === "transit") activity.transit = { mode: "Public Transit", from: "", to: "", lineOrService: "", departureDate: day.date, departureTime: "09:00", arrivalDate: day.date, arrivalTime: "", ticketDetails: "" };
@@ -270,17 +303,18 @@ export function defaultActivityDraft(type, context) {
   return activity;
 }
 
-function legFromCard(card, existing = {}) {
-  const seats = [];
-  const dan = scopedValue(card, "seatDan").toUpperCase();
-  const ken = scopedValue(card, "seatKen").toUpperCase();
-  if (dan) seats.push({ traveler: "Dan", seat: dan });
-  if (ken) seats.push({ traveler: "Ken", seat: ken });
+function legFromCard(card, existing = {}, travelers = []) {
+  const selectedTravelers = new Set(travelers);
+  const seats = [...card.querySelectorAll("[data-seat-traveler]")]
+    .filter((input) => selectedTravelers.has(input.dataset.seatTraveler))
+    .map((input) => ({ traveler: input.dataset.seatTraveler, seat: String(input.value || "").trim().toUpperCase() }))
+    .filter((seat) => seat.seat);
   return {
     ...existing,
     legId: existing.legId || existing.id || `leg-${Number(card.dataset.flightLeg || 0) + 1}`,
     airline: scopedValue(card, "legAirline"),
     flightNumber: scopedValue(card, "legFlightNumber").toUpperCase(),
+    cabin: scopedValue(card, "legCabin"),
     departure: { airport: scopedValue(card, "departureAirport").toUpperCase(), city: scopedValue(card, "departureCity"), terminal: scopedValue(card, "departureTerminal"), date: scopedValue(card, "departureDate"), time: scopedValue(card, "departureTime"), timeZone: scopedValue(card, "departureTimeZone") },
     arrival: { airport: scopedValue(card, "arrivalAirport").toUpperCase(), city: scopedValue(card, "arrivalCity"), terminal: scopedValue(card, "arrivalTerminal"), date: scopedValue(card, "arrivalDate"), time: scopedValue(card, "arrivalTime"), timeZone: scopedValue(card, "arrivalTimeZone") },
     seats,
@@ -312,13 +346,15 @@ export function activityFromForm(form, baseActivity = {}) {
   };
   if (type === "flight") {
     const prior = typeDetailsFor(baseActivity, "flight");
-    const legs = [...form.querySelectorAll("[data-flight-leg]")].map((card, index) => legFromCard(card, prior.legs?.[index] || {}));
+    const legs = [...form.querySelectorAll("[data-flight-leg]")].map((card, index) => legFromCard(card, prior.legs?.[index] || {}, travelers));
     const first = legs[0] || {};
     const last = legs.at(-1) || first;
     const route = `${first.departure?.airport || first.departure?.city || "Departure"} to ${last.arrival?.airport || last.arrival?.city || "Arrival"}`;
     const seats = legs.flatMap((leg) => leg.seats || []);
     const journeyTitle = valueOf(form, "journeyTitle") || route;
-    return { ...common, title: journeyTitle, venue: route, address: last.arrival?.city || last.arrival?.airport || "", dayDate: first.departure?.date || baseActivity.dayDate, start: first.departure?.time || "00:00", end: last.arrival?.time || first.departure?.time || "00:00", endDate: last.arrival?.date || first.departure?.date, timeZone: first.departure?.timeZone || baseActivity.timeZone || "UTC", party: seats.map((seat) => `${seat.traveler} ${seat.seat}`).join(" · "), airlineUrl: valueOf(form, "airlineUrl"), flight: { ...prior, journeyTitle, bookingReference: valueOf(form, "bookingReference"), airlineUrl: valueOf(form, "airlineUrl"), legs } };
+    const cabins = [...new Set(legs.map((leg) => leg.cabin).filter(Boolean))];
+    const party = [...cabins, ...seats.map((seat) => `${seat.traveler} ${seat.seat}`)].join(" · ");
+    return { ...common, title: journeyTitle, venue: route, address: last.arrival?.city || last.arrival?.airport || "", dayDate: first.departure?.date || baseActivity.dayDate, start: first.departure?.time || "00:00", end: last.arrival?.time || first.departure?.time || "00:00", endDate: last.arrival?.date || first.departure?.date, timeZone: first.departure?.timeZone || baseActivity.timeZone || "UTC", party, airlineUrl: valueOf(form, "airlineUrl"), flight: { ...prior, journeyTitle, bookingReference: valueOf(form, "bookingReference"), airlineUrl: valueOf(form, "airlineUrl"), legs } };
   }
   if (type === "accommodation") {
     const accommodation = { subtype: valueOf(form, "accommodationSubtype", "hotel-resort"), propertyOrHostName: valueOf(form, "propertyOrHostName"), address: valueOf(form, "accommodationAddress"), reservedFrom: valueOf(form, "reservedFrom"), reservedTo: valueOf(form, "reservedTo"), checkInTime: valueOf(form, "checkInTime"), checkOutTime: valueOf(form, "checkOutTime"), expectedArrivalDate: valueOf(form, "expectedArrivalDate"), expectedArrivalTime: valueOf(form, "expectedArrivalTime"), expectedDepartureDate: valueOf(form, "expectedDepartureDate"), expectedDepartureTime: valueOf(form, "expectedDepartureTime"), roomDetails: valueOf(form, "roomDetails"), listingUrl: valueOf(form, "listingUrl"), accessInstructions: valueOf(form, "accessInstructions"), checkoutInstructions: valueOf(form, "checkoutInstructions"), directions: valueOf(form, "accommodationDirections"), contactDetails: valueOf(form, "accommodationContact") };
@@ -348,7 +384,7 @@ export function nextFlightLeg(existingLegs = [], context = {}) {
   const previous = existingLegs.at(-1);
   const departure = previous?.arrival || { airport: "", city: context.city || "", terminal: "", date: context.selectedDate || "", time: "", timeZone: context.timeZone || "UTC" };
   const legId = typeof crypto !== "undefined" && crypto.randomUUID ? `leg-${crypto.randomUUID().toLowerCase()}` : `leg-${existingLegs.length + 1}`;
-  return { legId, airline: previous?.airline || "", flightNumber: "", departure: { ...departure }, arrival: { airport: "", city: "", terminal: "", date: departure.date || "", time: "", timeZone: departure.timeZone || "UTC" }, seats: [], bookingReference: "", status: "", documents: [] };
+  return { legId, airline: previous?.airline || "", flightNumber: "", cabin: previous?.cabin || "", departure: { ...departure }, arrival: { airport: "", city: "", terminal: "", date: departure.date || "", time: "", timeZone: departure.timeZone || "UTC" }, seats: [], bookingReference: "", status: "", documents: [] };
 }
 
 export function flightLegMarkup(leg, index, offline = false) {

@@ -1,6 +1,6 @@
-import { activityTypeFor, typeDetailsFor } from "./activity-model.js";
+import { activityTypeFor, FLIGHT_CABIN_OPTIONS, typeDetailsFor } from "./activity-model.js";
 
-export const ACTIVITY_SPREADSHEET_VERSION = "3";
+export const ACTIVITY_SPREADSHEET_VERSION = "4";
 
 export const ACTIVITY_SPREADSHEET_COLUMNS = [
   "schema_version",
@@ -26,6 +26,7 @@ export const ACTIVITY_SPREADSHEET_COLUMNS = [
   "arrival_terminal",
   "airline",
   "flight_number",
+  "cabin",
   "property_or_host_name",
   "reserved_from",
   "reserved_to",
@@ -57,7 +58,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   "Trip Details": {
     purpose: "One row describing the trip. Destination day/night artwork is intentionally excluded.",
     columns: [
-      ["schema_version", true, "Do not change", "3"],
+      ["schema_version", true, "Do not change", "4"],
       ["trip_id", true, "Stable ID; keep unchanged when updating a trip", "south-korea-april-2027"],
       ["trip_name", true, "Traveler-facing trip name", "South Korea In April"],
       ["start_date", true, "YYYY-MM-DD", "2027-04-10"],
@@ -70,7 +71,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   Activities: {
     purpose: "One row per underlying activity. Flights have their legs on Flight Legs.",
     columns: [
-      ["schema_version", true, "Do not change", "3"],
+      ["schema_version", true, "Do not change", "4"],
       ["activity_id", true, "Stable unique ID; create it once for a proposed new row and never reuse it", "activity-palace-tour"],
       ["base_revision", false, "Exported server revision used for conflict review", "1740000000000"],
       ["activity_type", true, "Use the dropdown", "tour"],
@@ -115,12 +116,13 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   "Flight Legs": {
     purpose: "One row per leg, connected to one Flight activity by activity_id.",
     columns: [
-      ["schema_version", true, "Do not change", "3"],
+      ["schema_version", true, "Do not change", "4"],
       ["activity_id", true, "Must match a Flight activity", "flight-bos-icn-sin"],
       ["leg_id", true, "Stable ID for this leg", "leg-bos-icn"],
       ["leg_number", true, "Journey order starting at 1", "1"],
       ["airline", true, "Operating or marketing airline", "Korean Air"],
       ["flight_number", true, "Flight number", "KE92"],
+      ["cabin", false, "Choose the cabin for this leg", "Business"],
       ["departure_airport", true, "IATA airport code", "BOS"],
       ["departure_city", true, "City", "Boston"],
       ["departure_terminal", false, "Optional", "E"],
@@ -133,16 +135,20 @@ export const TRAVEL_WORKBOOK_SHEETS = {
       ["arrival_date", true, "Local YYYY-MM-DD", "2027-04-11"],
       ["arrival_time", true, "Local HH:MM", "16:05"],
       ["arrival_time_zone", true, "IANA time zone", "Asia/Seoul"],
-      ["dan_seat", false, "Optional", "14H"],
-      ["ken_seat", false, "Optional", "14J"],
+      ["dan_seat", false, "Dan's seat; leave blank when Dan is not traveling", "14H"],
+      ["ken_seat", false, "Ken's seat; leave blank when Ken is not traveling", "14J"],
       ["leg_booking_reference", false, "Optional override", "ABC123"],
       ["leg_status", false, "Optional journey-status override", "confirmed"],
     ],
+    dropdowns: {
+      cabin: FLIGHT_CABIN_OPTIONS,
+      leg_status: ["planned", "confirmed", "awaiting", "purchased", "done", "skipped", "cancelled"],
+    },
   },
   Documents: {
     purpose: "Document metadata only. Files remain protected attachments in My Travels.",
     columns: [
-      ["schema_version", true, "Do not change", "3"],
+      ["schema_version", true, "Do not change", "4"],
       ["document_id", false, "Stable ID for an existing attachment", "doc-example"],
       ["activity_id", true, "Owning activity ID", "flight-bos-icn-sin"],
       ["leg_id", false, "Flight leg ID when applicable", "leg-bos-icn"],
@@ -196,6 +202,7 @@ function baseRow(activity, type) {
     arrival_terminal: "",
     airline: "",
     flight_number: "",
+    cabin: "",
     property_or_host_name: "",
     reserved_from: "",
     reserved_to: "",
@@ -250,6 +257,7 @@ export function activitySpreadsheetRows(activities = []) {
         arrival_terminal: leg.arrival?.terminal || "",
         airline: leg.airline || "",
         flight_number: leg.flightNumber || "",
+        cabin: leg.cabin || "",
         booking_reference: leg.bookingReference || details.bookingReference || row.booking_reference,
         booking_status: leg.status || row.booking_status,
         seat_assignments: (leg.seats || []).map((seat) => `${seat.traveler}: ${seat.seat}`).join(" | "),
@@ -384,6 +392,7 @@ export function spreadsheetImportReview(text, existingActivities = []) {
             legId: row.leg_id || priorLeg.legId || priorLeg.id || `leg-${index + 1}`,
             airline: row.airline || "",
             flightNumber: row.flight_number || "",
+            cabin: row.cabin || priorLeg.cabin || "",
             departure: { airport: row.departure_airport || "", city: row.departure_city || "", terminal: row.departure_terminal || "", date: row.start_date || "", time: row.start_time || "", timeZone: row.start_time_zone || "UTC" },
             arrival: { airport: row.arrival_airport || "", city: row.arrival_city || "", terminal: row.arrival_terminal || "", date: row.end_date || "", time: row.end_time || "", timeZone: row.end_time_zone || "UTC" },
             bookingReference: row.booking_reference || "",
@@ -524,6 +533,7 @@ export function travelWorkbookRows({ trip = {}, activities = [], revisions = {} 
       leg_number: index + 1,
       airline: leg.airline || "",
       flight_number: leg.flightNumber || "",
+      cabin: leg.cabin || "",
       departure_airport: leg.departure?.airport || "",
       departure_city: leg.departure?.city || "",
       departure_terminal: leg.departure?.terminal || "",
@@ -646,6 +656,7 @@ export function reviewTravelWorkbookImport(workbookRows, existingActivities = []
         leg_number: leg.leg_number,
         airline: leg.airline,
         flight_number: leg.flight_number,
+        cabin: leg.cabin,
         departure_airport: leg.departure_airport,
         departure_city: leg.departure_city,
         departure_terminal: leg.departure_terminal,

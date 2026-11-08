@@ -28,6 +28,7 @@ import {
   nextFlightLeg,
   renderActivityForm,
   renderTypePicker,
+  syncFlightSeatVisibility,
 } from "./activity-form.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -1792,6 +1793,7 @@ function activityFormContext(mode, activity = {}) {
     selectedDate: activity.dayDate || state.selectedDate,
     city: activity.city || day.city || "",
     timeZone: activity.timeZone || day.timeZone || "UTC",
+    currentProfile: state.currentProfile,
     transportDefaults: itinerary.trip.transportDefaults || {},
   };
 }
@@ -1825,6 +1827,7 @@ function bindActivityForm(baseActivity, mode) {
   if (!form) return;
   const draftKey = activityDraftKey(mode, baseActivity);
   accommodationVisibility(form);
+  syncFlightSeatVisibility(form);
 
   const rememberDraft = () => {
     try { state.activityDrafts.set(draftKey, activityFromForm(form, baseActivity)); }
@@ -1853,6 +1856,7 @@ function bindActivityForm(baseActivity, mode) {
   form.addEventListener("change", () => {
     rememberDraft();
     accommodationVisibility(form);
+    syncFlightSeatVisibility(form);
   });
   form.elements.activityType?.addEventListener("change", () => {
     const nextType = form.elements.activityType.value;

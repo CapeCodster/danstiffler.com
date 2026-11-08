@@ -306,6 +306,7 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 .traveler-fieldset .checkbox-row, .backup-service-fieldset .checkbox-row { margin: 0; }
 .flight-legs { display: grid; gap: 14px; margin-top: 12px; }
 .flight-leg-card { min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); border-radius: 15px; background: var(--surface-soft); }
+.seat-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
 .flight-leg-card > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .flight-leg-card > header > div { display: flex; align-items: center; gap: 8px; }
 .leg-number { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; }

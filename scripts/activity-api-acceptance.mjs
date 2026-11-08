@@ -92,8 +92,8 @@ const add = await request("/api/trip/sync", {
         bookingReference: "TEST",
         airlineUrl: "https://www.koreanair.com/",
         legs: [
-          { legId: "leg-bos-icn", airline: "Korean Air", flightNumber: "KE92", departure: { airport: "BOS", city: "Boston", terminal: "E", date: "2026-11-13", time: "11:10", timeZone: "America/New_York" }, arrival: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "16:05", timeZone: "Asia/Seoul" }, seats: [{ traveler: "Dan", seat: "14H" }, { traveler: "Ken", seat: "14J" }], documents: [] },
-          { legId: "leg-icn-sin", airline: "Korean Air", flightNumber: "KE645", departure: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "18:35", timeZone: "Asia/Seoul" }, arrival: { airport: "SIN", city: "Singapore", terminal: "4", date: "2026-11-15", time: "00:15", timeZone: "Asia/Singapore" }, seats: [{ traveler: "Dan", seat: "12H" }, { traveler: "Ken", seat: "14H" }], documents: [] },
+          { legId: "leg-bos-icn", airline: "Korean Air", flightNumber: "KE92", cabin: "Prestige Class", departure: { airport: "BOS", city: "Boston", terminal: "E", date: "2026-11-13", time: "11:10", timeZone: "America/New_York" }, arrival: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "16:05", timeZone: "Asia/Seoul" }, seats: [{ traveler: "Dan", seat: "14H" }, { traveler: "Ken", seat: "14J" }], documents: [] },
+          { legId: "leg-icn-sin", airline: "Korean Air", flightNumber: "KE645", cabin: "Prestige Class", departure: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "18:35", timeZone: "Asia/Seoul" }, arrival: { airport: "SIN", city: "Singapore", terminal: "4", date: "2026-11-15", time: "00:15", timeZone: "Asia/Singapore" }, seats: [{ traveler: "Dan", seat: "12H" }, { traveler: "Ken", seat: "14H" }], documents: [] },
         ],
       },
     },
@@ -105,6 +105,7 @@ assert(add.status === 200 && addBody.applied?.length === 1, `Type-aware activity
 const stored = await request("/api/trip/itinerary", { cookie });
 const storedBody = await stored.json();
 assert(storedBody.overrides[activityId]?.flight?.legs?.length === 2, "Multi-leg flight was not stored as one underlying journey");
+assert(storedBody.overrides[activityId]?.flight?.legs?.[0]?.cabin === "Prestige Class", "Flight cabin was not stored");
 assert(storedBody.overrides[activityId]?.documents?.[0]?.id === uploadBody.document.id, "Protected document metadata was not linked to the activity");
 
 const remove = await request("/api/trip/sync", { method: "POST", cookie, body: JSON.stringify({ mutations: [{ mutationId: `activity-api-delete-${Date.now()}`, activityId, kind: "delete", baseRevision: addBody.applied[0].revision }] }) });

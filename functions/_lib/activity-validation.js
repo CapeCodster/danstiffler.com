@@ -108,6 +108,7 @@ function flight(value) {
         legId: text(item.legId || `leg-${index + 1}`, "flight leg identifier", 80, { required: true }),
         airline: text(item.airline, "airline", 120, { required: true }),
         flightNumber: text(item.flightNumber, "flight number", 20, { required: true }).toUpperCase(),
+        cabin: text(item.cabin || "", "flight cabin", 80),
         departure: endpoint(item.departure, `leg ${index + 1} departure`),
         arrival: endpoint(item.arrival, `leg ${index + 1} arrival`),
         seats: seats(item.seats, `leg ${index + 1} seats`),

@@ -7,6 +7,11 @@ import {
   typeDetailsFor,
 } from "../trip/js/activity-model.js";
 import {
+  defaultActivityDraft,
+  renderActivityForm,
+  travelerSelectionFor,
+} from "../trip/js/activity-form.js";
+import {
   mergeReviewedWorkbook,
   reviewTravelWorkbookImport,
   travelWorkbookContract,
@@ -40,6 +45,7 @@ const flight = {
         legId: "leg-bos-icn",
         airline: "Korean Air",
         flightNumber: "KE92",
+        cabin: "Prestige Class",
         departure: { airport: "BOS", city: "Boston", terminal: "E", date: "2026-11-13", time: "11:10", timeZone: "America/New_York" },
         arrival: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "16:05", timeZone: "Asia/Seoul" },
         seats: [{ traveler: "Dan", seat: "14H" }, { traveler: "Ken", seat: "14J" }],
@@ -49,6 +55,7 @@ const flight = {
         legId: "leg-icn-sin",
         airline: "Korean Air",
         flightNumber: "KE645",
+        cabin: "Prestige Class",
         departure: { airport: "ICN", city: "Seoul", terminal: "2", date: "2026-11-14", time: "18:35", timeZone: "Asia/Seoul" },
         arrival: { airport: "SIN", city: "Singapore", terminal: "4", date: "2026-11-15", time: "00:15", timeZone: "Asia/Singapore" },
         seats: [{ traveler: "Dan", seat: "12H" }, { traveler: "Ken", seat: "14H" }],
@@ -120,6 +127,25 @@ assert.equal(connections[0].hub, "ICN");
 assert.equal(connections[0].durationMinutes, 150);
 assert.equal(connections[0].inconsistentChronology, false);
 assert.equal(flightJourneySummary(flight).route, "BOS → ICN → SIN");
+assert.equal(typeDetailsFor(flight, "flight").legs[0].cabin, "Prestige Class");
+assert.deepEqual(travelerSelectionFor(flight), ["Dan", "Ken"]);
+
+const legacyFlight = { id: "legacy-flight", title: "Korean Air KE92", venue: "BOS to ICN", dayDate: "2026-11-13", start: "11:10", end: "16:55", endDate: "2026-11-14", timeZone: "America/New_York", travelers: [], party: "Prestige Class · Dan 14H · Ken 14J" };
+assert.equal(typeDetailsFor(legacyFlight, "flight").legs[0].cabin, "Prestige Class");
+assert.deepEqual(travelerSelectionFor(legacyFlight), ["Dan", "Ken"]);
+assert.equal(typeDetailsFor({ ...legacyFlight, party: "Business Class · Dan 14H" }, "flight").legs[0].cabin, "Business");
+assert.equal(typeDetailsFor({ ...legacyFlight, party: "Economy Class · Dan 32C" }, "flight").legs[0].cabin, "Main Cabin");
+
+const draftContext = { days, selectedDate: "2026-11-13", city: "Boston", timeZone: "America/New_York", currentProfile: "Dan" };
+const soloDraft = defaultActivityDraft("flight", draftContext);
+assert.deepEqual(soloDraft.travelers, ["Dan"]);
+const soloForm = renderActivityForm(soloDraft, { ...draftContext, mode: "add", offline: false });
+assert.match(soloForm, /data-seat-traveler-row="Dan"/);
+assert.match(soloForm, /data-seat-traveler-row="Ken" hidden/);
+assert.match(soloForm, /Dan’s Seat/);
+const sharedForm = renderActivityForm(flight, { ...draftContext, mode: "edit", offline: false });
+assert.doesNotMatch(sharedForm, /data-seat-traveler-row="Ken" hidden/);
+assert.match(sharedForm, /name="legCabin"[^>]*value="Prestige Class"/);
 
 const materialized = materializeActivityDays(days, {
   [flight.id]: { ...flight, custom: true },
@@ -142,8 +168,10 @@ for (const type of ["flight", "accommodation", "transfer", "transit", "tour", "d
 const contract = travelWorkbookContract();
 assert.deepEqual(Object.keys(contract.sheets), ["Trip Details", "Activities", "Flight Legs", "Documents"]);
 assert.ok(contract.sheets.Activities.dropdowns.activity_subtype.includes("friends-family"));
+assert.deepEqual(contract.sheets["Flight Legs"].dropdowns.cabin, ["First Class", "Business", "Premium Economy", "Main Cabin"]);
 const workbook = travelWorkbookRows({ trip: { id: "demo", name: "Demo Trip", start: "2026-11-13", end: "2026-11-15", timeZone: "Asia/Singapore" }, activities: [flight, accommodation, transfer], revisions: { [flight.id]: 10, [accommodation.id]: 20, [transfer.id]: 30 } });
 assert.equal(workbook["Flight Legs"].length, 2);
+assert.equal(workbook["Flight Legs"][0].cabin, "Prestige Class");
 assert.equal(workbook.Documents.length, 1);
 assert.equal(workbook.Activities.find((row) => row.activity_id === accommodation.id).reserved_from, "2026-11-14");
 

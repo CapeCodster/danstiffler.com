@@ -154,7 +154,7 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v21')
+if (!tripServiceWorker.includes('my-travels-shell-v22')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')
@@ -238,7 +238,9 @@ if (!tripJs.includes('destinationPresentation(day, now, isActualToday)')
 if (!activityModelJs.includes('export const ACCOMMODATION_SUBTYPES')
   || !activityFormJs.includes('Choose Activity Type')
   || !activityFormJs.includes('Private Check-In And Access Instructions')
-  || !activityFormJs.includes('data-flight-leg')) {
+  || !activityFormJs.includes('data-flight-leg')
+  || !activityFormJs.includes('name="legCabin"')
+  || !activityFormJs.includes('syncFlightSeatVisibility')) {
   violations.push("trip activities: type-aware flight and accommodation editors are missing");
 }
 if (!activitySpreadsheetJs.includes('ACTIVITY_SPREADSHEET_VERSION')
