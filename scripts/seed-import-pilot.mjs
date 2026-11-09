@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import itinerary from "./fixtures/import-trip-pilot-itinerary.js";
 
@@ -12,6 +13,24 @@ origin = origin.replace(/\/$/, "");
 let bootstrapSecret = "";
 if (environment === "preview") {
   if (!/^https:\/\/[a-z0-9.-]+\.pages\.dev$/i.test(origin)) throw new Error("TRIP_DEPLOYMENT_ORIGIN must be the confirmed Preview pages.dev origin");
+  if (process.env.TRIP_DIRECT_D1 === "1") {
+    const escaped = JSON.stringify(itinerary).replaceAll("'", "''");
+    const now = Date.now();
+    const sql = [
+      "DELETE FROM travel_activity_overrides;",
+      "DELETE FROM travel_documents WHERE source = 'trip-import-v5';",
+      `INSERT INTO travel_state (state_key, json_value, version, updated_at, updated_by) VALUES ('itinerary', '${escaped}', 1, ${now}, 'import-pilot') ON CONFLICT(state_key) DO UPDATE SET json_value = excluded.json_value, version = travel_state.version + 1, updated_at = excluded.updated_at, updated_by = excluded.updated_by;`,
+    ].join("\n");
+    const result = spawnSync("npx", ["wrangler", "d1", "execute", "danstiffler-travel-preview", "--remote", "--env", "preview", "--command", sql], {
+      cwd: projectRoot,
+      env: { ...process.env, WRANGLER_LOG_PATH: "/private/tmp/danstiffler-import-pilot-direct.log" },
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+    });
+    if (result.status !== 0) throw new Error(`Direct Preview pilot seed failed: ${result.stderr || result.stdout}`);
+    console.log(JSON.stringify({ seeded: true, environment, method: "direct-preview-d1", tripId: itinerary.trip.id, days: itinerary.days.length, destinations: [...new Set(itinerary.days.map((day) => `${day.city}:${day.mediaKey}`))] }));
+    process.exit(0);
+  }
   const state = JSON.parse(await fs.readFile(path.join(projectRoot, "trip/private/preview-setup-state.json"), "utf8"));
   bootstrapSecret = state.bootstrapSecret;
 } else {
