@@ -166,6 +166,7 @@ const state = {
   revisions: {},
   pendingChanges: [],
   conflicts: [],
+  environment: null,
   pendingChangedAt: null,
   pendingExportedAt: null,
   activityDrafts: new Map(),
@@ -434,6 +435,7 @@ async function restoreServerSession() {
   try {
     const session = await fetchJson("/api/trip/session");
     state.traveller = session.user.displayName;
+    state.environment = session.environment || null;
     await loadServerItinerary();
     await refreshOfflineSummary();
     unlockApp();
@@ -552,6 +554,7 @@ accessForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ traveller: state.traveller, code, rememberDevice: rememberDevice.checked }),
     });
     state.traveller = result.user.displayName;
+    state.environment = result.environment || null;
     await loadServerItinerary();
     await refreshOfflineSummary();
     unlockApp();
@@ -1189,6 +1192,11 @@ function renderMore() {
     <div class="view-content">
       <div class="page-intro"><p class="eyebrow">${escapeHtml(state.currentProfile || state.traveller)}</p><h1>More</h1><p>${SERVER_AUTH ? "Secure trip tools and account settings." : "Trip tools and local prototype settings."}</p></div>
       <div class="settings-list">
+        ${new Set(["preview", "local"]).has(state.environment) && !state.offlineMode ? `<section class="settings-section">
+          <h2>Import Trip <span class="status-badge" data-status="awaiting">Preview Pilot</span></h2>
+          <p>Upload a schema v5 workbook, review sheet-and-row validation plus stable-ID matches, then confirm the merge into this Preview itinerary.</p>
+          <div class="button-row"><a class="primary-button button-link" href="/trip/import.html">Open Import Trip</a></div>
+        </section>` : ""}
         <section class="settings-section">
           <h2>Before You Go</h2>
           <div class="task-list">

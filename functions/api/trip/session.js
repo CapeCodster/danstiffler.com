@@ -11,6 +11,7 @@ export async function onRequest(context) {
       authenticated: true,
       user: { id: session.userId, displayName: session.displayName },
       expiresAt: session.expiresAt,
+      environment: String(env.AUTH_MODE || "production"),
     });
   } catch (error) {
     return errorResponse(error, request);

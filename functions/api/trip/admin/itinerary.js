@@ -22,6 +22,15 @@ export async function onRequest(context) {
     await requireBootstrapSecret(request, env);
     const body = await readJson(request, 524288);
     validateItinerary(body.itinerary);
+    if (body.resetImportPilot) {
+      if (!new Set(["preview", "local"]).has(String(env.AUTH_MODE || ""))) throw new RequestError(403, "Pilot reset is available only in Preview");
+      const importedDocuments = await env.DB.prepare("SELECT r2_key FROM travel_documents WHERE source = 'trip-import-v5'").all();
+      if (importedDocuments.results.length) await env.TRIP_DOCUMENTS.delete(importedDocuments.results.map((row) => String(row.r2_key)));
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM travel_activity_overrides"),
+        env.DB.prepare("DELETE FROM travel_documents WHERE source = 'trip-import-v5'"),
+      ]);
+    }
     const now = Date.now();
     await env.DB.prepare(
       `INSERT INTO travel_state (state_key, json_value, version, updated_at, updated_by)

@@ -241,6 +241,7 @@ function commonFields(input, dayDates, { partial }) {
   for (const key of ["start", "end"]) if (has(key) || !partial) output[key] = time(input[key] || "", key, { required: !partial });
   if (has("endDate")) output.endDate = date(input.endDate || "", "end date");
   if (has("timeZone")) output.timeZone = timeZone(input.timeZone || "", "activity time zone");
+  if (has("airlineUrl")) output.airlineUrl = optionalUrl(input.airlineUrl || "", "airline URL");
   if (has("status") || !partial) output.status = status(input.status || "planned");
   if (has("fixed")) output.fixed = Boolean(input.fixed);
   for (const key of ["travelMinutes", "arrivalBufferMinutes"]) {

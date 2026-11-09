@@ -5,18 +5,21 @@
   "scripts": {
     "build": "node scripts/build-deploy.mjs",
     "verify:deployment": "node scripts/verify-deployment-boundary.mjs dist",
-    "check:syntax": "node --check trip/js/trip.js && node --check trip/js/activity-navigation.js && node --check trip/js/activity-model.js && node --check trip/js/activity-form.js && node --check trip/js/activity-spreadsheet.js && node --check trip/js/destination-presentation.js && node --check trip/js/offline-vault.js && node --check trip/js/pending-sync.js && node --check trip/sw.js && node --check scripts/build-deploy.mjs && node --check scripts/verify-deployment-boundary.mjs && node --check scripts/local-cloudflare-test.mjs && node --check scripts/local-security-acceptance.mjs && node --check scripts/recovery-security-acceptance.mjs && node --check scripts/activity-api-acceptance.mjs && node --check scripts/offline-editing-acceptance.mjs && node --check scripts/activity-navigation-acceptance.mjs && node --check scripts/activity-types-acceptance.mjs && node --check scripts/destination-handoff-acceptance.mjs && node --check scripts/seed-local-trip.mjs && node --check scripts/prepare-preview-secrets.mjs && node --check scripts/seed-preview-trip.mjs && node --check scripts/verify-preview-deployment.mjs && node scripts/check-functions.mjs",
+    "check:syntax": "node --check trip/js/trip.js && node --check trip/js/import-trip.js && node --check trip/js/activity-navigation.js && node --check trip/js/activity-model.js && node --check trip/js/activity-form.js && node --check trip/js/activity-spreadsheet.js && node --check trip/js/destination-presentation.js && node --check trip/js/offline-vault.js && node --check trip/js/pending-sync.js && node --check trip/sw.js && node --check scripts/build-deploy.mjs && node --check scripts/verify-deployment-boundary.mjs && node --check scripts/local-cloudflare-test.mjs && node --check scripts/local-security-acceptance.mjs && node --check scripts/recovery-security-acceptance.mjs && node --check scripts/activity-api-acceptance.mjs && node --check scripts/import-trip-acceptance.mjs && node --check scripts/offline-editing-acceptance.mjs && node --check scripts/activity-navigation-acceptance.mjs && node --check scripts/activity-types-acceptance.mjs && node --check scripts/destination-handoff-acceptance.mjs && node --check scripts/seed-local-trip.mjs && node --check scripts/seed-import-pilot.mjs && node --check scripts/prepare-preview-secrets.mjs && node --check scripts/seed-preview-trip.mjs && node --check scripts/verify-preview-deployment.mjs && node scripts/check-functions.mjs",
     "check": "npm run check:syntax && npm run test:offline-editing && npm run test:activity-navigation && npm run test:activity-types && npm run test:destination-handoff && npm run build && npm run verify:deployment",
     "dev:cloudflare": "wrangler pages dev dist --port 8788 --persist-to .wrangler/state --binding AUTH_MODE=local --binding SESSION_TTL_SECONDS=604800",
     "test:auth-local": "node scripts/local-cloudflare-test.mjs",
     "test:security-local": "node scripts/local-security-acceptance.mjs",
     "test:recovery-security-local": "node scripts/recovery-security-acceptance.mjs",
     "test:activity-api-local": "node scripts/activity-api-acceptance.mjs",
+    "test:import-trip-local": "node scripts/import-trip-acceptance.mjs",
     "test:offline-editing": "node scripts/offline-editing-acceptance.mjs",
     "test:activity-navigation": "node scripts/activity-navigation-acceptance.mjs",
     "test:activity-types": "node scripts/activity-types-acceptance.mjs",
     "test:destination-handoff": "node scripts/destination-handoff-acceptance.mjs",
     "seed:trip-local": "node scripts/seed-local-trip.mjs",
+    "seed:import-pilot-local": "TRIP_DEPLOYMENT_ENV=local node scripts/seed-import-pilot.mjs",
+    "preview:seed-import-pilot": "TRIP_DEPLOYMENT_ENV=preview node scripts/seed-import-pilot.mjs",
     "preview:prepare-secrets": "TRIP_DEPLOYMENT_ENV=preview node scripts/prepare-preview-secrets.mjs",
     "preview:seed": "TRIP_DEPLOYMENT_ENV=preview node scripts/seed-preview-trip.mjs",
     "preview:verify": "TRIP_DEPLOYMENT_ENV=preview node scripts/verify-preview-deployment.mjs",
@@ -27,5 +30,8 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "wrangler": "4.158.0"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
   }
 }

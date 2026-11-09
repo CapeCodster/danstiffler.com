@@ -1,6 +1,6 @@
 import { activityTypeFor, FLIGHT_CABIN_OPTIONS, typeDetailsFor } from "./activity-model.js";
 
-export const ACTIVITY_SPREADSHEET_VERSION = "4";
+export const ACTIVITY_SPREADSHEET_VERSION = "5";
 
 export const ACTIVITY_SPREADSHEET_COLUMNS = [
   "schema_version",
@@ -58,7 +58,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   "Trip Details": {
     purpose: "One row describing the trip. Destination day/night artwork is intentionally excluded.",
     columns: [
-      ["schema_version", true, "Do not change", "4"],
+      ["schema_version", true, "Do not change", "5"],
       ["trip_id", true, "Stable ID; keep unchanged when updating a trip", "south-korea-april-2027"],
       ["trip_name", true, "Traveler-facing trip name", "South Korea In April"],
       ["start_date", true, "YYYY-MM-DD", "2027-04-10"],
@@ -71,7 +71,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   Activities: {
     purpose: "One row per underlying activity. Flights have their legs on Flight Legs.",
     columns: [
-      ["schema_version", true, "Do not change", "4"],
+      ["schema_version", true, "Do not change", "5"],
       ["activity_id", true, "Stable unique ID; create it once for a proposed new row and never reuse it", "activity-palace-tour"],
       ["base_revision", false, "Exported server revision used for conflict review", "1740000000000"],
       ["activity_type", true, "Use the dropdown", "tour"],
@@ -106,6 +106,15 @@ export const TRAVEL_WORKBOOK_SHEETS = {
       ["cancellation_terms", false, "Optional", "Cancel by April 1"],
       ["notes", false, "Private notes", "Bring passport"],
       ["what_to_wear", false, "Optional", "Walking shoes"],
+      ["airline_url", false, "Flight only", "https://www.koreanair.com/"],
+      ["booking_details", false, "Common optional booking details", "Voucher details or inclusions"],
+      ["check_in_time", false, "Accommodation formal stay", "15:00"],
+      ["check_out_time", false, "Accommodation formal stay", "11:00"],
+      ["room_details", false, "Accommodation formal stay", "King room, harbor view"],
+      ["transfer_prebooked", false, "Transfer: Yes or No", "Yes"],
+      ["backup_services", false, "Transfer: separate values with |", "Uber | Grab"],
+      ["ticket_details", false, "Public Transit only", "Stored-value card"],
+      ["party_size", false, "Dining only", "2"],
     ],
     dropdowns: {
       activity_type: ["flight", "accommodation", "transfer", "transit", "tour", "dining", "general"],
@@ -116,7 +125,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   "Flight Legs": {
     purpose: "One row per leg, connected to one Flight activity by activity_id.",
     columns: [
-      ["schema_version", true, "Do not change", "4"],
+      ["schema_version", true, "Do not change", "5"],
       ["activity_id", true, "Must match a Flight activity", "flight-bos-icn-sin"],
       ["leg_id", true, "Stable ID for this leg", "leg-bos-icn"],
       ["leg_number", true, "Journey order starting at 1", "1"],
@@ -124,13 +133,13 @@ export const TRAVEL_WORKBOOK_SHEETS = {
       ["flight_number", true, "Flight number", "KE92"],
       ["cabin", false, "Choose the cabin for this leg", "Business"],
       ["departure_airport", true, "IATA airport code", "BOS"],
-      ["departure_city", true, "City", "Boston"],
+      ["departure_city", false, "Optional traveler-facing city", "Boston"],
       ["departure_terminal", false, "Optional", "E"],
       ["departure_date", true, "Local YYYY-MM-DD", "2027-04-10"],
       ["departure_time", true, "Local HH:MM", "11:10"],
       ["departure_time_zone", true, "IANA time zone", "America/New_York"],
       ["arrival_airport", true, "IATA airport code", "ICN"],
-      ["arrival_city", true, "City", "Seoul"],
+      ["arrival_city", false, "Optional traveler-facing city", "Seoul"],
       ["arrival_terminal", false, "Optional", "2"],
       ["arrival_date", true, "Local YYYY-MM-DD", "2027-04-11"],
       ["arrival_time", true, "Local HH:MM", "16:05"],
@@ -148,7 +157,7 @@ export const TRAVEL_WORKBOOK_SHEETS = {
   Documents: {
     purpose: "Document metadata only. Files remain protected attachments in My Travels.",
     columns: [
-      ["schema_version", true, "Do not change", "4"],
+      ["schema_version", true, "Do not change", "5"],
       ["document_id", false, "Stable ID for an existing attachment", "doc-example"],
       ["activity_id", true, "Owning activity ID", "flight-bos-icn-sin"],
       ["leg_id", false, "Flight leg ID when applicable", "leg-bos-icn"],
@@ -497,6 +506,15 @@ function activitySheetRow(activity, revisions = {}) {
     cancellation_terms: row.cancellation_terms,
     notes: row.notes,
     what_to_wear: row.what_to_wear,
+    airline_url: type === "flight" ? (details.airlineUrl || activity.airlineUrl || "") : "",
+    booking_details: activity.bookingDetails || "",
+    check_in_time: "",
+    check_out_time: "",
+    room_details: "",
+    transfer_prebooked: "",
+    backup_services: "",
+    ticket_details: "",
+    party_size: "",
   };
   if (type === "accommodation") Object.assign(output, {
     property_or_host_name: details.propertyOrHostName || "",
@@ -512,11 +530,14 @@ function activitySheetRow(activity, revisions = {}) {
     directions: details.directions || output.directions,
     contact_details: details.contactDetails || output.contact_details,
     address: details.address || output.address,
+    check_in_time: details.checkInTime || "",
+    check_out_time: details.checkOutTime || "",
+    room_details: details.roomDetails || "",
   });
-  if (type === "transfer") Object.assign(output, { location_or_pickup: details.pickup || "", destination_or_dropoff: details.dropoff || "", provider_or_service: details.service || "" });
-  if (type === "transit") Object.assign(output, { location_or_pickup: details.from || "", destination_or_dropoff: details.to || "", provider_or_service: details.mode || "" });
+  if (type === "transfer") Object.assign(output, { location_or_pickup: details.pickup || "", destination_or_dropoff: details.dropoff || "", provider_or_service: details.service || "", transfer_prebooked: details.prebooked ? "Yes" : "No", backup_services: cell(details.backupServices || []) });
+  if (type === "transit") Object.assign(output, { location_or_pickup: details.from || "", destination_or_dropoff: details.to || "", provider_or_service: details.mode || "", ticket_details: details.ticketDetails || "" });
   if (type === "tour") Object.assign(output, { location_or_pickup: details.meetingPoint || "", provider_or_service: details.provider || "" });
-  if (type === "dining") Object.assign(output, { location_or_pickup: details.restaurant || "", address: details.address || "" });
+  if (type === "dining") Object.assign(output, { location_or_pickup: details.restaurant || "", address: details.address || "", party_size: details.partySize || activity.party || "" });
   return output;
 }
 

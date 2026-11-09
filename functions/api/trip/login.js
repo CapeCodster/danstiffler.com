@@ -69,6 +69,7 @@ export async function onRequest(context) {
       authenticated: true,
       user: { id: String(user.id), displayName: String(user.display_name) },
       expiresAt: session.expiresAt,
+      environment: String(env.AUTH_MODE || "production"),
     }, 200, { "Set-Cookie": session.cookie });
   } catch (error) {
     return errorResponse(error, request);

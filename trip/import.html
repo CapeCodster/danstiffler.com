@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fbf7f1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>Import Trip | My Travels</title>
+  <link rel="icon" type="image/svg+xml" href="/trip/icons/my-travels-globe.svg">
+  <link rel="stylesheet" href="/trip/css/trip.css">
+  <link rel="stylesheet" href="/trip/css/import-trip.css">
+</head>
+<body>
+  <header class="app-header import-header">
+    <a class="brand" href="/trip/"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9c-3-3-4-6-4-9s1-6 4-9Z"></path></svg><span>My Travels</span></a>
+    <a class="secondary-button button-link import-back" href="/trip/">Back</a>
+  </header>
+  <main class="import-shell" id="importApp">
+    <div class="page-intro">
+      <p class="eyebrow">Preview pilot · schema v5</p>
+      <h1>Import Trip</h1>
+      <p>Upload the workbook and any protected files named on Documents. Nothing changes until the review is valid and you confirm the merge.</p>
+    </div>
+
+    <section class="import-step" id="accessStatus" aria-live="polite">
+      <h2>Checking Preview access…</h2>
+    </section>
+
+    <form class="import-step import-upload" id="importForm" hidden>
+      <div class="step-heading"><span>1</span><div><h2>Upload</h2><p>The importer reads only the active Preview itinerary.</p></div></div>
+      <label for="workbookFile">Schema v5 workbook</label>
+      <input id="workbookFile" name="workbook" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+      <label for="attachmentFiles">Protected attachments</label>
+      <input id="attachmentFiles" name="attachments" type="file" accept=".pdf,.jpg,.jpeg,.png,.eml,.txt" multiple>
+      <p class="security-note">Filenames must exactly match the Documents sheet. Files remain private behind My Travels sign-in.</p>
+      <div class="selected-files" id="selectedFiles"></div>
+      <button class="primary-button" id="reviewButton" type="submit">Review Import</button>
+      <p class="form-error" id="uploadError" role="alert"></p>
+    </form>
+
+    <section class="import-step" id="reviewStep" hidden>
+      <div class="step-heading"><span>2</span><div><h2>Review</h2><p>Correct errors in the workbook and retry; review never writes data.</p></div></div>
+      <div id="reviewContent"></div>
+      <div class="import-actions">
+        <button class="secondary-button" id="reviewAgain" type="button">Choose Another Workbook</button>
+        <button class="primary-button" id="mergeButton" type="button">Confirm Merge</button>
+      </div>
+      <p class="form-error" id="mergeError" role="alert"></p>
+    </section>
+
+    <section class="import-step" id="resultStep" hidden>
+      <div class="step-heading"><span>3</span><div><h2>Merge complete</h2><p>The result below is the authoritative Preview write.</p></div></div>
+      <div id="resultContent"></div>
+      <div class="import-actions"><a class="primary-button button-link" href="/trip/">Open My Travels</a><button class="secondary-button" id="importAgain" type="button">Import Again</button></div>
+    </section>
+  </main>
+  <script type="module" src="/trip/js/import-trip.js"></script>
+</body>
+</html>
