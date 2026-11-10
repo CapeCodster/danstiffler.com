@@ -8,6 +8,10 @@ const workbookPath = new URL("../tmp/My-Travels-Worked-Flight-Pilot.xlsx", impor
 const documentPath = new URL("../tmp/pdfs/flight-confirmation.pdf", import.meta.url);
 const workbookBytes = await fs.readFile(workbookPath);
 const documentBytes = await fs.readFile(documentPath);
+const accessCode = origin.includes("127.0.0.1") || origin.includes("localhost")
+  ? "111111"
+  : (await fs.readFile(new URL("../trip/private/My Travels Preview Credentials - PRIVATE.txt", import.meta.url), "utf8")).match(/DAN\s+Access code:\s*(\d{6})/i)?.[1];
+assert.match(accessCode || "", /^\d{6}$/, "Dan Preview access code is unavailable");
 
 function cookieFrom(response) {
   return response.headers.get("set-cookie")?.split(";", 1)[0] || "";
@@ -17,7 +21,7 @@ async function login() {
   const response = await fetch(`${origin}/api/trip/login`, {
     method: "POST",
     headers: { Origin: origin, "Content-Type": "application/json" },
-    body: JSON.stringify({ traveller: "Dan", code: "111111", rememberDevice: false }),
+    body: JSON.stringify({ traveller: "Dan", code: accessCode, rememberDevice: false }),
   });
   assert.equal(response.status, 200, `Local login failed: ${await response.text()}`);
   return cookieFrom(response);
@@ -112,6 +116,7 @@ assert.equal(repeatedMerge.summary.update, 0);
 
 const revision = Number((await (await fetch(`${origin}/api/trip/itinerary`, { headers: { Cookie: cookie } })).json()).revisions["custom-flight-bos-icn"]);
 const updateBytes = updateWorkbook(workbookBytes, revision);
+await fs.writeFile(new URL("../tmp/My-Travels-Worked-Flight-Update.xlsx", import.meta.url), updateBytes);
 const updateReview = await postImport("/api/trip/import/review", cookie, updateBytes);
 assert.equal(updateReview.errors.length, 0, JSON.stringify(updateReview.errors));
 const activityUpdate = updateReview.records.find((record) => record.stableId === "custom-flight-bos-icn");
