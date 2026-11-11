@@ -12,6 +12,7 @@ import { destinationPresentation } from "./destination-presentation.js";
 import { activityNeighbors } from "./activity-navigation.js";
 import {
   activityTypeFor,
+  bookingReferenceFor,
   cityRideServices,
   durationLabel,
   editableActivityId,
@@ -1542,6 +1543,13 @@ function openActivity(id, editMode = false) {
   const type = activityTypeFor(root);
   const protectedDocuments = activityDocuments(root);
   const flightSummary = type === "flight" ? flightJourneySummary(root) : null;
+  const bookingReference = bookingReferenceFor(root, activity.flightLegIndex);
+  const bookingReferenceLabel = type === "flight" ? "PNR" : "Booking Reference";
+  const reservationSummary = [
+    activity.party,
+    activity.paid,
+    bookingReference ? `${bookingReferenceLabel} ${bookingReference}` : "",
+  ].filter(Boolean);
 
   activityDialogContent.innerHTML = editMode
     ? renderActivityForm(root, activityFormContext("edit", root))
@@ -1578,7 +1586,7 @@ function openActivity(id, editMode = false) {
           </div>`)}
           ${type === "flight" && root.flight?.airlineUrl ? `<a class="outline-action standalone-action" href="${escapeHtml(root.flight.airlineUrl)}" target="_blank" rel="noopener external">Open Airline App Or Website</a>` : ""}
           ${type === "transit" ? `<div class="button-row"><button class="secondary-button" type="button" data-copy-value="${escapeHtml(root.transit?.from || "")}">Copy Origin</button><button class="secondary-button" type="button" data-copy-value="${escapeHtml(root.transit?.to || "")}">Copy Destination</button></div>` : ""}
-          ${(activity.party || activity.paid) ? `<p class="party-line">♧ ${escapeHtml([activity.party, activity.paid].filter(Boolean).join(" · "))}</p>` : ""}
+          ${reservationSummary.length ? `<p class="reservation-summary-line">♧ ${escapeHtml(reservationSummary.join(" · "))}</p>` : ""}
           <div class="detail-disclosures">
             <details><summary><span>⌖</span>Meeting point</summary><p>${escapeHtml(activity.meetingPoint || activity.address || activity.venue || activity.city)}</p></details>
             <details><summary><span>▤</span>Visit notes</summary><p>${escapeHtml(activity.note || "No additional visit note recorded.")}</p></details>

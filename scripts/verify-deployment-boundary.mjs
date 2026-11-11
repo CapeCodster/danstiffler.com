@@ -246,6 +246,13 @@ if (!activityModelJs.includes('export const ACCOMMODATION_SUBTYPES')
   || !activityFormJs.includes('syncFlightSeatVisibility')) {
   violations.push("trip activities: type-aware flight and accommodation editors are missing");
 }
+if (!activityModelJs.includes("export function bookingReferenceFor")
+  || !activityFormJs.includes("PNR / Record Locator")
+  || !tripJs.includes('class="reservation-summary-line"')
+  || !tripJs.includes('type === "flight" ? "PNR" : "Booking Reference"')
+  || !tripCss.includes(".reservation-summary-line")) {
+  violations.push("trip activities: booking references are not presented consistently across reservation types");
+}
 if (!activitySpreadsheetJs.includes('ACTIVITY_SPREADSHEET_VERSION')
   || !activitySpreadsheetJs.includes('spreadsheetImportReview')) {
   violations.push("trip activities: reusable workbook data contract or review engine is missing");

@@ -2,6 +2,7 @@ import {
   ACCOMMODATION_SUBTYPES,
   ACTIVITY_TYPES,
   activityTypeFor,
+  bookingReferenceFor,
   cityRideServices,
   connectionDetails,
   durationLabel,
@@ -90,11 +91,13 @@ function documentList(activity) {
 
 function commonOptionalSections(activity, offline) {
   const cost = activity.cost || {};
+  const flight = activityTypeFor(activity) === "flight";
+  const bookingReferenceLabel = flight ? "PNR / Record Locator" : "Booking Reference";
   return `
     <details class="form-section form-section--optional">
       <summary>Booking Details</summary>
       <div class="form-section-body">
-        <label>Booking Reference<input name="bookingReference" maxlength="120" value="${escapeHtml(activity.bookingReference || "")}"></label>
+        <label>${bookingReferenceLabel}<input name="bookingReference" maxlength="120" value="${escapeHtml(bookingReferenceFor(activity))}"></label>
         <div class="form-columns"><label>Cost<input name="costAmount" inputmode="decimal" maxlength="40" value="${escapeHtml(cost.amount || "")}"></label><label>Currency<input name="currency" maxlength="8" autocapitalize="characters" value="${escapeHtml(cost.currency || "")}"></label></div>
         <label>Cancellation Terms<textarea name="cancellationTerms" rows="3" maxlength="3000">${escapeHtml(activity.cancellationTerms || "")}</textarea></label>
         <label>Contact Details<textarea name="contact" rows="2" maxlength="1000">${escapeHtml(activity.contact || "")}</textarea></label>
