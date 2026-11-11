@@ -257,7 +257,7 @@ input, select, textarea { width: 100%; min-height: 48px; padding: 11px 12px; bor
 .transfer-plan .action-icon { width: 25px; height: 25px; color: var(--accent-strong); }
 .transfer-plan strong { display: block; font-size: .9rem; }
 .transfer-plan p { margin: 4px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
-.party-line { margin: 12px 2px; font-size: .92rem; }
+.reservation-summary-line { margin: 12px 2px; font-size: .92rem; line-height: 1.45; }
 .detail-disclosures { display: grid; gap: 8px; }
 .detail-disclosures details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .detail-disclosures summary { min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; list-style: none; font-weight: 710; cursor: pointer; }

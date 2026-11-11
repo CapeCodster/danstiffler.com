@@ -63,6 +63,14 @@ for (const [id, seats] of expectedFlightSeats) {
   const activity = flightActivities.find((candidate) => candidate.id === id);
   assert.equal(activity?.party, seats, `${id} seat assignments are incomplete`);
 }
+for (const id of ["ke92", "ke645", "ke644", "ke91"]) {
+  const activity = flightActivities.find((candidate) => candidate.id === id);
+  assert.equal(activity?.bookingReference, "FHC3AT", `${id} is missing the Korean Air PNR`);
+}
+for (const [id, bookingReference] of [["sin-airport-pickup", "XTQ927076"], ["sin-transfer", "SPM198606"], ["hkg-transfer", "XYN187509"]]) {
+  const activity = flightActivities.find((candidate) => candidate.id === id);
+  assert.equal(activity?.bookingReference, bookingReference, `${id} is missing its booking reference`);
+}
 
 console.log(JSON.stringify({
   ok: true,
@@ -71,4 +79,5 @@ console.log(JSON.stringify({
   itineraryDayBrowsingPreserved: true,
   seoulFlightDays: configuredSeoulDates.length,
   flightSeatRecords: expectedFlightSeats.size,
+  bookingReferences: 7,
 }));

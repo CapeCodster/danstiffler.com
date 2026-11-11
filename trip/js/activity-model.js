@@ -220,6 +220,13 @@ export function typeDetailsFor(activity = {}, type = activityTypeFor(activity)) 
   });
 }
 
+export function bookingReferenceFor(activity = {}, legIndex = activity.flightLegIndex) {
+  if (activityTypeFor(activity) !== "flight") return String(activity.bookingReference || "").trim();
+  const flight = typeDetailsFor(activity, "flight");
+  const legReference = Number.isInteger(legIndex) ? flight.legs?.[legIndex]?.bookingReference : "";
+  return String(legReference || flight.bookingReference || activity.bookingReference || "").trim();
+}
+
 export function zonedDateTimeToEpoch(date, time, timeZone) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date)) || !/^\d{2}:\d{2}$/.test(String(time)) || !timeZone) return NaN;
   const [year, month, day] = date.split("-").map(Number);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   activityTypeFor,
+  bookingReferenceFor,
   connectionDetails,
   flightJourneySummary,
   materializeActivityDays,
@@ -75,6 +76,7 @@ const accommodation = {
   end: "09:00",
   endDate: "2026-11-18",
   timeZone: "Asia/Singapore",
+  bookingReference: "STAY42",
   documents: [],
   accommodation: {
     subtype: "rental",
@@ -128,6 +130,9 @@ assert.equal(connections[0].durationMinutes, 150);
 assert.equal(connections[0].inconsistentChronology, false);
 assert.equal(flightJourneySummary(flight).route, "BOS → ICN → SIN");
 assert.equal(typeDetailsFor(flight, "flight").legs[0].cabin, "Prestige Class");
+assert.equal(bookingReferenceFor(flight), "DEMO");
+assert.equal(bookingReferenceFor(accommodation), "STAY42");
+assert.equal(bookingReferenceFor({ activityType: "general", bookingReference: "AVIS42" }), "AVIS42");
 assert.deepEqual(travelerSelectionFor(flight), ["Dan", "Ken"]);
 
 const legacyFlight = { id: "legacy-flight", title: "Korean Air KE92", venue: "BOS to ICN", dayDate: "2026-11-13", start: "11:10", end: "16:55", endDate: "2026-11-14", timeZone: "America/New_York", travelers: [], party: "Prestige Class · Dan 14H · Ken 14J" };
@@ -149,6 +154,9 @@ assert.deepEqual(sharedDraft.travelers, ["Dan", "Ken"]);
 const sharedForm = renderActivityForm(flight, { ...draftContext, mode: "edit", offline: false });
 assert.doesNotMatch(sharedForm, /data-seat-traveler-row="Ken" hidden/);
 assert.match(sharedForm, /name="legCabin"[^>]*value="Prestige Class"/);
+assert.match(sharedForm, /PNR \/ Record Locator<input name="bookingReference"[^>]*value="DEMO"/);
+const accommodationForm = renderActivityForm(accommodation, { ...draftContext, mode: "edit", offline: false });
+assert.match(accommodationForm, /Booking Reference<input name="bookingReference"[^>]*value="STAY42"/);
 
 const materialized = materializeActivityDays(days, {
   [flight.id]: { ...flight, custom: true },
