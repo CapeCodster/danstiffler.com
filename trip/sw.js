@@ -1,4 +1,4 @@
-const CACHE_VERSION = "my-travels-shell-v23";
+const CACHE_VERSION = "my-travels-shell-v25";
 const APP_SHELL = [
   "/trip/",
   "/trip/index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "/trip/js/activity-form.js",
   "/trip/js/activity-spreadsheet.js",
   "/trip/js/destination-presentation.js",
+  "/trip/js/destination-references.js",
   "/trip/js/offline-vault.js",
   "/trip/js/pending-sync.js",
   "/trip/manifest.webmanifest",

@@ -9,6 +9,13 @@ import {
 } from "./offline-vault.js";
 import { queuePendingMutation, reconcileSyncResult, removalPolicy } from "./pending-sync.js";
 import { destinationPresentation } from "./destination-presentation.js";
+import {
+  destinationReferenceChoices,
+  destinationReferenceDocuments,
+  destinationReferenceOfflineState,
+  destinationReferences,
+  destinationReferencesForCity,
+} from "./destination-references.js";
 import { activityNeighbors } from "./activity-navigation.js";
 import {
   activityTypeFor,
@@ -146,6 +153,7 @@ const appearanceButton = $("#appearanceButton");
 const themeColorMeta = $("#themeColor");
 const deviceColorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 let documentObjectUrl = null;
+let documentPreviewObjectUrls = [];
 const dialogViewportState = new WeakMap();
 
 const state = {
@@ -1017,6 +1025,7 @@ function renderToday() {
       <span class="day-context ${isActualToday ? "is-today" : ""}">${escapeHtml(dayContext)}</span>
     </div>
     <div class="view-content today-content">
+      ${renderDestinationReferencesForDay(day)}
       ${featured ? renderFeaturedActivity(featured, featureLabel) : '<div class="empty-state">No more activities are scheduled today.</div>'}
       ${later.length ? `<section class="later-section"><h2>${laterHeading}</h2><div class="later-list">${later.map(renderLaterActivity).join("")}</div></section>` : ""}
     </div>`;
@@ -1108,6 +1117,51 @@ function activityDocuments(activity) {
   return [...new Map(documents.filter((document) => document?.url).map((document) => [document.url, document])).values()];
 }
 
+function documentMetadataForUrl(url) {
+  const reference = destinationReferenceDocuments(itinerary.trip).find((document) => document.url === url);
+  if (reference) return { ...reference, kind: "map" };
+  const roots = materializeActivityDays(itinerary.days, state.overrides).roots;
+  for (const activity of roots.values()) {
+    const document = activityDocuments(activity).find((candidate) => candidate.url === url);
+    if (document) return document;
+  }
+  return { url };
+}
+
+function destinationReferenceStatus(reference) {
+  const status = destinationReferenceOfflineState(reference, state);
+  if (status === "ready") return { status, label: "Ready offline" };
+  if (status === "update") return { status, label: "Update offline download" };
+  if (status === "missing") return { status, label: "Not in this offline copy" };
+  return { status, label: "Available online" };
+}
+
+function renderDestinationReferenceCard(reference) {
+  const document = reference.document;
+  const availability = destinationReferenceStatus(reference);
+  return `<article class="destination-reference-card">
+    <div class="destination-reference-heading">
+      <span class="destination-reference-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="m4 7 8-3 8 3 8-3v21l-8 3-8-3-8 3V7Z"></path><path d="M12 4v21M20 7v21"></path><circle cx="20" cy="14" r="2.5"></circle></svg></span>
+      <div>
+        <p class="detail-kicker">${escapeHtml((reference.destinations || []).join(" & "))} reference</p>
+        <h3>${escapeHtml(reference.title || document.label || "Offline Maps")}</h3>
+        <p>${escapeHtml(reference.description || "Destination reference PDF.")}</p>
+        <span class="destination-reference-status" data-offline-status="${escapeHtml(availability.status)}">${availability.status === "ready" ? "✓ " : "○ "}${escapeHtml(availability.label)}</span>
+      </div>
+    </div>
+    <div class="button-row destination-reference-actions">
+      <button class="primary-button" type="button" data-document-url="${escapeHtml(document.url)}">View Maps</button>
+      <button class="secondary-button" type="button" data-save-document-url="${escapeHtml(document.url)}">Save PDF To Files</button>
+    </div>
+  </article>`;
+}
+
+function renderDestinationReferencesForDay(day) {
+  const references = destinationReferencesForCity(itinerary.trip, day.city);
+  if (!references.length) return "";
+  return `<section class="destination-reference-list" aria-label="${escapeHtml(day.city)} reference maps">${references.map(renderDestinationReferenceCard).join("")}</section>`;
+}
+
 function renderItinerary() {
   const days = getDays();
   mainContent.innerHTML = `
@@ -1117,6 +1171,7 @@ function renderItinerary() {
         ${days.map((day) => `
           <section class="day-group" id="day-${day.date}">
             <div class="day-label"><h2>${escapeHtml(formatDay(day.date))}</h2><span>${escapeHtml(day.city)}</span></div>
+            ${renderDestinationReferencesForDay(day)}
             ${day.activities.map((activity) => renderActivityCard(activity)).join("") || '<div class="empty-state">Nothing scheduled.</div>'}
           </section>`).join("")}
       </div>
@@ -1126,10 +1181,12 @@ function renderItinerary() {
 function renderTickets() {
   const roots = materializeActivityDays(itinerary.days, state.overrides).roots;
   const documents = [...roots.values()].filter((activity) => activityDocuments(activity).length);
+  const references = destinationReferences(itinerary.trip);
   mainContent.innerHTML = `
     <div class="view-content">
       <div class="page-intro"><p class="eyebrow">Trip documents</p><h1>Tickets & Confirmations</h1><p>Both travelers may view every document. A traveler label shows who uses a ticket, not who may open it.</p></div>
       <div class="ticket-grid">
+        ${references.map(renderDestinationReferenceCard).join("")}
         ${documents.map((activity) => `
           <article class="ticket-card">
             <p class="detail-kicker">${escapeHtml(formatDay(activity.dayDate, { short: true }))}</p>
@@ -1243,6 +1300,7 @@ function bindRenderedEvents() {
   }));
   $$('[data-activity-id]').forEach((button) => button.addEventListener("click", () => openActivity(button.dataset.activityId)));
   $$('[data-document-url]').forEach((button) => button.addEventListener("click", () => openDocument(button.dataset.documentUrl, button)));
+  $$('[data-save-document-url]').forEach((button) => button.addEventListener("click", () => saveDocumentToFiles(button.dataset.saveDocumentUrl, button)));
   $$('[data-transport-activity]').forEach((button) => button.addEventListener("click", () => showTransportOptions(button.dataset.transportActivity)));
   $('[data-add-activity]')?.addEventListener("click", showAddActivity);
   $('[data-download-offline]')?.addEventListener("click", downloadOffline);
@@ -2011,11 +2069,66 @@ async function openDocument(url, button) {
   try {
     const blob = await loadDocumentBlob(url);
     if (isReadableConfirmation(blob)) await showConfirmationDocument(blob);
-    else openOriginalDocument(blob, url);
+    else {
+      const metadata = documentMetadataForUrl(url);
+      const previewBlobs = metadata.kind === "map" && metadata.previewPages?.length
+        ? await Promise.all(metadata.previewPages.map((page) => loadDocumentBlob(page.url)))
+        : [];
+      openOriginalDocument(blob, url, metadata, previewBlobs);
+    }
   } catch (error) {
     showNotice(`${error.message}. ${state.offlineMode ? "Reconnect to update the selected offline documents." : "Download the trip for offline use while connected."}`);
   } finally {
     if (button) button.textContent = original;
+  }
+}
+
+function safeDocumentFilename(metadata, blob) {
+  const supplied = String(metadata?.filename || "").trim();
+  if (supplied) return supplied.replaceAll(/[^A-Za-z0-9._ -]/g, "_").slice(0, 160);
+  if (String(blob.type || "").toLowerCase().startsWith("application/pdf")) return "trip-document.pdf";
+  return "trip-document";
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+async function saveBlobToFiles(blob, metadata = {}) {
+  const filename = safeDocumentFilename(metadata, blob);
+  const title = metadata.referenceTitle || metadata.label || filename;
+  const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title });
+    return;
+  }
+  downloadBlob(blob, filename);
+  showNotice(`${filename} was downloaded. On iPhone, choose Save to Files from the download or share menu.`);
+}
+
+async function saveDocumentToFiles(url, button) {
+  const original = button?.textContent;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Preparing PDF…";
+  }
+  try {
+    const blob = await loadDocumentBlob(url);
+    await saveBlobToFiles(blob, documentMetadataForUrl(url));
+  } catch (error) {
+    if (error?.name !== "AbortError") showNotice(error.message || "The document could not be saved.");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 }
 
@@ -2035,28 +2148,49 @@ function isReadableConfirmation(blob) {
   return type.startsWith("text/") || type.includes("message/rfc822");
 }
 
-function openOriginalDocument(blob, sourceUrl) {
+function openOriginalDocument(blob, sourceUrl, metadata = {}, previewBlobs = []) {
   if (documentObjectUrl) URL.revokeObjectURL(documentObjectUrl);
+  for (const url of documentPreviewObjectUrls) URL.revokeObjectURL(url);
+  documentPreviewObjectUrls = [];
   documentObjectUrl = URL.createObjectURL(blob);
   const contentType = String(blob.type || "").toLowerCase();
-  const downloadName = sourceUrl.split("/").at(-1) || "trip-document";
-  const viewer = contentType.startsWith("application/pdf")
-    ? `<iframe class="document-frame" src="${documentObjectUrl}" title="Private PDF document"></iframe>`
+  const downloadName = safeDocumentFilename(metadata, blob);
+  const documentTitle = metadata.referenceTitle || metadata.label || "Document Viewer";
+  const isMap = metadata.kind === "map";
+  if (isMap && previewBlobs.length) documentPreviewObjectUrls = previewBlobs.map((page) => URL.createObjectURL(page));
+  const viewer = isMap && documentPreviewObjectUrls.length
+    ? `<div class="map-page-viewer" aria-label="Offline map viewer">${documentPreviewObjectUrls.map((url, index) => `<figure><img src="${url}" alt="${escapeHtml(metadata.previewPages[index]?.alt || `${documentTitle}, page ${index + 1}`)}"><figcaption>Page ${index + 1} of ${documentPreviewObjectUrls.length}</figcaption></figure>`).join("")}</div>`
+    : contentType.startsWith("application/pdf")
+    ? `<iframe class="document-frame" src="${documentObjectUrl}" title="${escapeHtml(documentTitle)}" scrolling="yes"></iframe>`
     : (contentType.startsWith("image/")
       ? `<div class="document-image-wrap"><img src="${documentObjectUrl}" alt="Private travel document"></div>`
       : `<div class="document-download-fallback"><p>This file cannot be shown inside the app. Download it without leaving My Travels.</p><a class="primary-button button-link" href="${documentObjectUrl}" download="${escapeHtml(downloadName)}">Download file</a></div>`);
   documentDialogContent.innerHTML = `
     <div class="private-document-viewer">
       <header class="document-viewer-header">
-        <div><p class="detail-kicker">Private document</p><h2>Document Viewer</h2></div>
+        <div><p class="detail-kicker">${isMap ? "Offline reference maps" : "Private document"}</p><h2>${escapeHtml(documentTitle)}</h2>${contentType.startsWith("application/pdf") ? '<p class="document-viewer-hint">Pinch to zoom and scroll through all pages.</p>' : ""}</div>
         <button class="primary-button" type="button" data-document-done>Close document</button>
       </header>
       ${viewer}
       <footer class="document-viewer-footer">
-        <a class="secondary-button button-link" href="${documentObjectUrl}" download="${escapeHtml(downloadName)}">Download a copy</a>
+        <button class="secondary-button" type="button" data-save-open-document>${contentType.startsWith("application/pdf") ? "Save PDF To Files" : "Save To Files"}</button>
         <button class="primary-button" type="button" data-document-done>Close document</button>
       </footer>
     </div>`;
+  $('[data-save-open-document]', documentDialogContent)?.addEventListener("click", async (buttonEvent) => {
+    const button = buttonEvent.currentTarget;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = "Preparing…";
+    try {
+      await saveBlobToFiles(blob, { ...metadata, filename: downloadName });
+    } catch (error) {
+      if (error?.name !== "AbortError") showNotice(error.message || "The document could not be saved.");
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  });
   $$('[data-document-done]', documentDialogContent).forEach((button) => {
     button.addEventListener("click", () => closeDialog(documentDialog));
   });
@@ -2147,6 +2281,8 @@ async function showConfirmationDocument(blob) {
 
 documentDialog.addEventListener("close", () => {
   if (documentObjectUrl) URL.revokeObjectURL(documentObjectUrl);
+  for (const url of documentPreviewObjectUrls) URL.revokeObjectURL(url);
+  documentPreviewObjectUrls = [];
   documentObjectUrl = null;
   documentDialogContent.replaceChildren();
 });
@@ -2171,16 +2307,19 @@ async function registerServiceWorker() {
   }
 }
 
-function offlineDocumentChoices(sourceDays = getAllDays()) {
+function offlineDocumentChoices(sourceItinerary = itinerary) {
   const choices = new Map();
-  for (const day of sourceDays) {
+  for (const reference of destinationReferenceChoices(sourceItinerary.trip)) {
+    choices.set(reference.url, reference);
+  }
+  for (const day of sourceItinerary.days || []) {
     for (const activity of day.activities) {
       for (const document of activityDocuments(activity)) {
         const kind = document.scope === "leg" ? "flight leg" : "document";
         const url = document.url;
         const label = document.label || document.filename || listingTitle(activity.title);
         if (!url || choices.has(url)) continue;
-        choices.set(url, { url, label, date: activity.dayDate || day.date, kind });
+        choices.set(url, { url, label, detail: formatDay(activity.dayDate || day.date, { short: true }), kind, required: false });
       }
     }
   }
@@ -2205,7 +2344,7 @@ function downloadOffline() {
       <form id="offlineDownloadForm" class="offline-download-form">
         <fieldset class="offline-ticket-list">
           <legend>Selected documents</legend>
-          ${choices.map((choice) => `<label class="offline-ticket-choice"><input type="checkbox" name="offlineDocument" value="${escapeHtml(choice.url)}" checked><span><strong>${escapeHtml(choice.label)}</strong><small>${escapeHtml(formatDay(choice.date, { short: true }))}</small></span></label>`).join("") || '<p>No private documents are attached to this itinerary.</p>'}
+          ${choices.map((choice) => `<label class="offline-ticket-choice">${choice.required ? `<input type="hidden" name="offlineDocument" value="${escapeHtml(choice.url)}"><input type="checkbox" checked disabled aria-label="Always included">` : `<input type="checkbox" name="offlineDocument" value="${escapeHtml(choice.url)}" checked>`}<span><strong>${escapeHtml(choice.label)}</strong><small>${escapeHtml(choice.detail || "Trip document")}</small></span></label>`).join("") || '<p>No private documents are attached to this itinerary.</p>'}
         </fieldset>
         <label for="offlineCode">Re-enter ${escapeHtml(state.currentProfile)}’s six-digit code
           <input id="offlineCode" name="offlineCode" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required>
@@ -2230,6 +2369,16 @@ function collectMediaUrls(sourceItinerary) {
   return [...urls];
 }
 
+function collectDestinationReferencePreviewUrls(sourceItinerary) {
+  return destinationReferences(sourceItinerary.trip).flatMap((reference) => (
+    (reference.previewPages || []).map((page, index) => ({
+      url: page.url,
+      kind: "media",
+      name: `${reference.title || "Destination maps"}, page ${index + 1}`,
+    }))
+  ));
+}
+
 async function fetchOfflineAsset(url, kind, name) {
   const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
   if (!response.ok) throw new Error(`${name} could not be downloaded (${response.status})`);
@@ -2251,9 +2400,11 @@ async function saveOfflineDownload(event) {
   try {
     await fetchJson("/api/trip/reauth", { method: "POST", body: JSON.stringify({ code }) });
     const fresh = await fetchJson("/api/trip/itinerary");
-    const documentChoices = new Map(offlineDocumentChoices(fresh.itinerary.days).map((choice) => [choice.url, choice]));
+    const documentChoices = new Map(offlineDocumentChoices(fresh.itinerary).map((choice) => [choice.url, choice]));
+    for (const choice of documentChoices.values()) if (choice.required) selectedDocuments.add(choice.url);
     const requested = [
       ...collectMediaUrls(fresh.itinerary).map((url, index) => ({ url, kind: "media", name: `Destination image ${index + 1}` })),
+      ...collectDestinationReferencePreviewUrls(fresh.itinerary),
       ...[...selectedDocuments].map((url) => {
         const choice = documentChoices.get(url);
         return { url, kind: choice?.kind || "document", name: choice?.label || "Trip document" };

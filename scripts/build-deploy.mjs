@@ -25,6 +25,7 @@ const publicFiles = [
   "trip/js/activity-form.js",
   "trip/js/activity-spreadsheet.js",
   "trip/js/destination-presentation.js",
+  "trip/js/destination-references.js",
   "trip/js/offline-vault.js",
   "trip/js/pending-sync.js",
   "trip/manifest.webmanifest",

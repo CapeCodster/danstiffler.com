@@ -42,6 +42,7 @@ const allowedFiles = new Set([
   "trip/js/activity-form.js",
   "trip/js/activity-spreadsheet.js",
   "trip/js/destination-presentation.js",
+  "trip/js/destination-references.js",
   "trip/js/offline-vault.js",
   "trip/js/pending-sync.js",
   "trip/manifest.webmanifest",
@@ -154,10 +155,11 @@ if (tripCss.includes("border-bottom: 2px solid var(--accent)")) {
 for (const iconPath of ["/trip/icons/icon-192.png", "/trip/icons/icon-512.png"]) {
   if (!tripManifest.includes(iconPath)) violations.push(`trip/manifest.webmanifest: missing ${iconPath}`);
 }
-if (!tripServiceWorker.includes('my-travels-shell-v23')
+if (!tripServiceWorker.includes('my-travels-shell-v25')
   || !tripServiceWorker.includes('/trip/icons/my-travels-globe.svg')
   || !tripServiceWorker.includes('/trip/js/activity-navigation.js')
   || !tripServiceWorker.includes('/trip/js/destination-presentation.js')
+  || !tripServiceWorker.includes('/trip/js/destination-references.js')
   || !tripServiceWorker.includes('/trip/js/activity-model.js')
   || !tripServiceWorker.includes('/trip/js/activity-form.js')) {
   violations.push("trip/sw.js: revised shell cache or travel icon precache is missing");
@@ -203,7 +205,7 @@ if (!tripJs.includes('https://maps.apple.com/directions?')
 if (!tripJs.includes('REFERENCE_ACTIVITY_IDS')
   || !tripJs.includes('function getReferenceActivities()')
   || !tripJs.includes('<h2>Travel Reference</h2>')
-  || !tripJs.includes('function offlineDocumentChoices(sourceDays = getAllDays())')) {
+  || !tripJs.includes('function offlineDocumentChoices(sourceItinerary = itinerary)')) {
   violations.push("trip reference: insurance is not separated from timed activities while remaining available offline");
 }
 if (!tripCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr))')) {
